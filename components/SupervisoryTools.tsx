@@ -291,6 +291,7 @@ const PeerVisitsTool: React.FC<{
     academicYear: string;
 }> = ({ visits, setVisits, deleteVisit, academicYear }) => {
     const {t} = useLanguage();
+    const { currentUser } = useAuth();
 
     const visitStats = useMemo(() => {
         const activeVisits = visits.filter(v => v.visitingTeacher.trim() !== '');
@@ -315,7 +316,9 @@ const PeerVisitsTool: React.FC<{
             id: `pv-${Date.now()}`, 
             visitingTeacher: '', visitingSubject: '', visitingGrade: '', 
             visitedTeacher: '', visitedSpecialization: '', visitedSubject: '', visitedGrade: '',
-            status: 'لم تتم'
+            status: 'لم تتم',
+            authorId: currentUser?.id,
+            academicYear: academicYear
         }]);
     };
     
@@ -394,6 +397,7 @@ const DeliverySheetsTool: React.FC<{
     academicYear: string;
 }> = ({ deliverySheets, setDeliverySheets, deleteDeliverySheet, allTeachers, academicYear }) => {
     const { t } = useLanguage();
+    const { currentUser } = useAuth();
     const [activeSheetId, setActiveSheetId] = useState<string | null>(null);
 
     const handleNewSheet = () => {
@@ -411,7 +415,9 @@ const DeliverySheetsTool: React.FC<{
                     formCount: '',
                     receiveDate: '',
                     deliveryDate: ''
-                }))
+                })),
+                authorId: currentUser?.id,
+                academicYear: academicYear,
             };
             setDeliverySheets(prev => [...prev, newSheet]);
             setActiveSheetId(newSheet.id);

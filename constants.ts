@@ -12,9 +12,115 @@ export const INITIAL_USERS: User[] = [
         name: 'إبراهيم دخان',
         code: '772324000a780804012a',
         permissions: ['all'],
-        managedTeacherIds: [] // Ensure consistent object shape
+        managedTeacherIds: []
+    },
+    {
+        id: 'user-02',
+        name: 'آية فاتق',
+        code: '3A8B',
+        permissions: ['create_general_report', 'view_reports_for_specific_teachers', 'view_syllabus', 'view_teachers'],
+        managedTeacherIds: ['t5']
+    },
+    {
+        id: 'user-03',
+        name: 'إيمان قطيش',
+        code: '5C2D',
+        permissions: ['create_general_report', 'view_reports_for_specific_teachers', 'view_syllabus', 'view_teachers'],
+        managedTeacherIds: ['t9']
+    },
+    {
+        id: 'user-04',
+        name: 'إيمان النصيف',
+        code: '9E4F',
+        permissions: ['create_general_report', 'view_reports_for_specific_teachers', 'view_syllabus', 'view_teachers'],
+        managedTeacherIds: ['t11']
+    },
+    {
+        id: 'user-05',
+        name: 'جمال الرديني',
+        code: '7G6H',
+        permissions: ['create_general_report', 'view_reports_for_specific_teachers', 'view_syllabus', 'view_teachers'],
+        managedTeacherIds: ['t8']
+    },
+    {
+        id: 'user-06',
+        name: 'عبدالرزاق صبيح',
+        code: '1I8J',
+        permissions: ['create_general_report', 'view_reports_for_specific_teachers', 'view_syllabus', 'view_teachers'],
+        managedTeacherIds: ['t7']
+    },
+    {
+        id: 'user-07',
+        name: 'علي الروني',
+        code: '2K5L',
+        permissions: ['create_general_report', 'view_reports_for_specific_teachers', 'view_syllabus', 'view_teachers'],
+        managedTeacherIds: ['t13']
+    },
+    {
+        id: 'user-08',
+        name: 'فهمي الجرافي',
+        code: '4M3N',
+        permissions: ['create_general_report', 'view_reports_for_specific_teachers', 'view_syllabus', 'view_teachers'],
+        managedTeacherIds: ['t4']
+    },
+    {
+        id: 'user-09',
+        name: 'منير الجمري',
+        code: '6O9P',
+        permissions: ['create_general_report', 'view_reports_for_specific_teachers', 'view_syllabus', 'view_teachers'],
+        managedTeacherIds: ['t1']
+    },
+    {
+        id: 'user-10',
+        name: 'وجدان عزي',
+        code: '8Q7R',
+        permissions: ['create_general_report', 'view_reports_for_specific_teachers', 'view_syllabus', 'view_teachers'],
+        managedTeacherIds: ['t1']
+    },
+    {
+        id: 'user-11',
+        name: 'وفاء الصلوي',
+        code: '0S1T',
+        permissions: ['create_general_report', 'view_reports_for_specific_teachers', 'view_syllabus', 'view_teachers'],
+        managedTeacherIds: ['t10']
+    },
+    {
+        id: 'user-12',
+        name: 'إيمان العبسي',
+        code: '3U2V',
+        permissions: ['create_general_report', 'view_reports_for_specific_teachers', 'view_syllabus', 'view_teachers'],
+        managedTeacherIds: ['t15']
+    },
+    {
+        id: 'user-13',
+        name: 'رانيا العزي',
+        code: '5W4X',
+        permissions: ['create_general_report', 'view_reports_for_specific_teachers', 'view_syllabus', 'view_teachers'],
+        managedTeacherIds: ['t16']
+    },
+    {
+        id: 'user-14',
+        name: 'هدى الصغير',
+        code: '7Y6Z',
+        permissions: ['create_general_report', 'view_reports_for_specific_teachers', 'view_syllabus', 'view_teachers'],
+        managedTeacherIds: ['t17']
+    },
+    {
+        id: 'user-15',
+        name: 'أشواق المخلافي',
+        code: '9A8B',
+        permissions: ['create_general_report', 'view_reports_for_specific_teachers', 'view_syllabus', 'view_teachers'],
+        managedTeacherIds: ['t18']
+    },
+    {
+        id: 'user-16',
+        name: 'عائشة العريقي',
+        code: '2C1D',
+        permissions: ['create_general_report', 'view_reports_for_specific_teachers', 'view_syllabus', 'view_teachers'],
+        managedTeacherIds: ['t19']
     }
 ];
+
 
 // --- New: Permissions Hierarchy for User Management UI ---
 export const PERMISSIONS_HIERARCHY: { [key in Permission]?: Permission[] } = {
