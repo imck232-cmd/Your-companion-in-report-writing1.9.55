@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>رفيقك في كتابة التقارير</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Cairo', 'sans-serif'],
+            },
+            colors: {
+              'primary': 'var(--color-primary)',
+              'primary-light': 'var(--color-primary-light)',
+              'blood-red': '#8a0707',
+              'warning': '#f59e0b', // amber-500 for orange color
+              'light-yellow': '#fef08a', // yellow-200
+            }
+          }
+        }
+      }
+    </script>
+    <!-- jsPDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+    <!-- SheetJS (xlsx) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+      /* Amiri font for jsPDF */
+      @font-face {
+          font-family: 'Amiri';
+          src: url('https://fonts.gstatic.com/s/amiri/v25/J7aRnpd8CGxBHqU2sQ.woff2') format('woff2');
+          font-weight: normal;
+          font-style: normal;
+      }
+      /* CSS Variables for Theming */
+      :root {
+        --color-primary: #16786d;
+        --color-primary-light: #3ab3a3;
+        --color-background: #f9fafb;
+        --color-text: #1f2937;
+        --color-card-bg: #ffffff;
+        --color-card-border: #e5e7eb;
+        --color-header-bg: var(--color-primary);
+        --color-header-text: #ffffff;
+      }
+      body {
+        background-color: var(--color-background);
+        color: var(--color-text);
+      }
+      .glowing-icon {
+        filter: drop-shadow(0 0 5px var(--color-primary-light));
+      }
+      /* Styles for the progress bar */
+      .progress-bar {
+        width: 100%;
+        background-color: #e9ecef;
+        border-radius: .25rem;
+        height: 1rem;
+        position: relative;
+        overflow: hidden;
+      }
+      .progress-bar-fill {
+        background-color: #28a745;
+        height: 100%;
+        border-radius: .25rem;
+        transition: width 0.4s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .progress-bar-text {
+        color: white;
+        font-size: 0.75rem;
+        font-weight: bold;
+        position: absolute;
+        width: 100%;
+        text-align: center;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.29.0"
+  }
+}
+</script>
+</head>
+  <body>
+    <script>
+      // Define process.env for browser environment to hold the API key
+      window.process = {
+        env: {
+          API_KEY: 'AIzaSyDrdg4ER_H_u6mht_m13gQux8gy_nlwNCg'
+        }
+      };
+    </script>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
