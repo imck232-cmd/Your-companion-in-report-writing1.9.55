@@ -24,15 +24,15 @@ const Header: React.FC<HeaderProps> = ({ currentTheme, setTheme, selectedSchool,
 
   return (
     <header className="bg-header-bg text-header-text shadow-lg" style={{ backgroundColor: 'var(--color-header-bg)', color: 'var(--color-header-text)' }}>
-      <div className="container mx-auto px-6 py-4 flex justify-between items-center">
-        <div>
+      <div className="container mx-auto px-6 py-4 flex flex-col items-center gap-4">
+        <div className="text-center">
           <h1 className="text-3xl md:text-4xl font-bold">{t('appTitle')}</h1>
           {selectedSchool && <p className="mt-2 text-gray-200" style={{ opacity: 0.9 }}>{t('currentSchool')}: <span className="font-bold">{selectedSchool}</span></p>}
           {academicYear && <p className="mt-1 text-sm text-gray-200" style={{ opacity: 0.9 }}>{t('academicYear')}: <span className="font-bold">{academicYear}</span></p>}
           <p className="mt-1 text-sm text-gray-300" style={{ opacity: 0.8 }}>{t('preparedBy')}</p>
         </div>
 
-        <div className="flex items-center gap-2 relative">
+        <div className="flex flex-wrap justify-center items-center gap-2 relative">
             {hasPermission('change_school') && (
                  <button
                     onClick={onChangeSchool}
