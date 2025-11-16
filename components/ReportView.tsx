@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Teacher, Report, EvaluationType, GeneralEvaluationReport, ClassSessionEvaluationReport, CustomCriterion, GeneralCriterion, SpecialReportTemplate, SpecialReport, SyllabusPlan, ClassSessionCriterionGroup } from '../types';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -23,13 +23,24 @@ interface ReportViewProps {
   supervisorName: string;
   semester: 'الأول' | 'الثاني';
   academicYear: string;
+  initiallyOpenReportId: string | null;
 }
 
-const ReportView: React.FC<ReportViewProps> = ({ teacher, reports, customCriteria, specialReportTemplates, syllabusPlans, onBack, saveReport, deleteReport, updateTeacher, saveCustomCriterion, hiddenCriteria, supervisorName, semester, academicYear }) => {
+const ReportView: React.FC<ReportViewProps> = ({ teacher, reports, customCriteria, specialReportTemplates, syllabusPlans, onBack, saveReport, deleteReport, updateTeacher, saveCustomCriterion, hiddenCriteria, supervisorName, semester, academicYear, initiallyOpenReportId }) => {
   const { t } = useLanguage();
   const { hasPermission } = useAuth();
   const [editingReport, setEditingReport] = useState<Report | null>(null);
   const [isCreatingNew, setIsCreatingNew] = useState(false);
+
+  useEffect(() => {
+    if (initiallyOpenReportId) {
+        const reportToOpen = reports.find(r => r.id === initiallyOpenReportId);
+        if (reportToOpen) {
+            setEditingReport(reportToOpen);
+            setIsCreatingNew(false);
+        }
+    }
+  }, [initiallyOpenReportId, reports]);
 
   const handleNewReport = (type: EvaluationType, template?: SpecialReportTemplate) => {
     // Find the most recent report of the same type for this teacher to pre-fill data
@@ -138,6 +149,9 @@ const ReportView: React.FC<ReportViewProps> = ({ teacher, reports, customCriteri
   const cancelEdit = () => {
     setEditingReport(null);
     setIsCreatingNew(false);
+    if (initiallyOpenReportId) {
+        onBack();
+    }
   }
 
   const handleSaveReport = (report: Report) => {

@@ -15,6 +15,7 @@ import UserManagement from './UserManagement';
 import SyllabusCoverageManager from './SyllabusCoverageManager';
 import SyllabusPlanner from './SyllabusPlanner';
 import SupervisoryPlanComponent from './SupervisoryPlan';
+import EvaluationSummary from './EvaluationSummary';
 import { GENERAL_EVALUATION_CRITERIA_TEMPLATE, CLASS_SESSION_BRIEF_TEMPLATE, CLASS_SESSION_EXTENDED_TEMPLATE, CLASS_SESSION_SUBJECT_SPECIFIC_TEMPLATE } from '../constants';
 
 
@@ -61,7 +62,7 @@ interface TeacherManagementProps {
   setBulkMessages: React.Dispatch<React.SetStateAction<BulkMessage[]>>;
 }
 
-type View = 'teachers' | 'syllabus_coverage' | 'aggregated_reports' | 'performance_dashboard' | 'special_reports' | 'syllabus' | 'task_plan' | 'supervisory_tools' | 'bulk_message' | 'user_management' | 'supervisory_plan';
+type View = 'teachers' | 'syllabus_coverage' | 'aggregated_reports' | 'performance_dashboard' | 'special_reports' | 'syllabus' | 'task_plan' | 'supervisory_tools' | 'bulk_message' | 'user_management' | 'supervisory_plan' | 'evaluation_summary';
 
 // --- CriterionManagerModal moved outside of TeacherManagement to prevent re-instantiation on re-renders ---
 interface CriterionManagerModalProps {
@@ -365,6 +366,7 @@ const TeacherManagement: React.FC<TeacherManagementProps> = (props) => {
   const [selectedTeacher, setSelectedTeacher] = useState<Teacher | null>(null);
   const [activeView, setActiveView] = useState<View>('teachers');
   const [isManagingCriteria, setIsManagingCriteria] = useState(false);
+  const [initiallyOpenReportId, setInitiallyOpenReportId] = useState<string | null>(null);
   // --- Global settings state ---
   const [supervisorName, setSupervisorName] = useState('');
   const [semester, setSemester] = useState<'الأول' | 'الثاني'>('الأول');
@@ -376,6 +378,16 @@ const TeacherManagement: React.FC<TeacherManagementProps> = (props) => {
 
   const handleBackToList = () => {
     setSelectedTeacher(null);
+    setInitiallyOpenReportId(null);
+  };
+
+  const handleViewReport = (teacherId: string, reportId: string) => {
+      const teacher = allTeachers.find(t => t.id === teacherId);
+      if (teacher) {
+          setSelectedTeacher(teacher);
+          setInitiallyOpenReportId(reportId);
+          setActiveView('teachers');
+      }
   };
   
   // Special Reports Manager Component Logic
@@ -493,6 +505,8 @@ const TeacherManagement: React.FC<TeacherManagementProps> = (props) => {
 
   const renderView = () => {
     switch (activeView) {
+      case 'evaluation_summary':
+        return <EvaluationSummary reports={reports} teachers={allTeachers} onViewReport={handleViewReport} />;
       case 'user_management':
         return <UserManagement allTeachers={allTeachers} />;
       case 'supervisory_plan':
@@ -569,6 +583,7 @@ const TeacherManagement: React.FC<TeacherManagementProps> = (props) => {
                     supervisorName={supervisorName}
                     semester={semester}
                     academicYear={academicYear!}
+                    initiallyOpenReportId={initiallyOpenReportId}
                  />;
         }
         return (
@@ -606,6 +621,7 @@ const TeacherManagement: React.FC<TeacherManagementProps> = (props) => {
             customCriteria={customCriteria}
         />}
       <div className="flex flex-wrap justify-center gap-2 md:gap-4 mb-6">
+        <button onClick={() => setActiveView('evaluation_summary')} className={getButtonClass('evaluation_summary')}>{t('evaluationSummary')}</button>
         {hasPermission('view_supervisory_plan') && <button onClick={() => setActiveView('supervisory_plan')} className={getButtonClass('supervisory_plan')}>{t('supervisoryPlan')}</button>}
         {hasPermission('view_task_plan') && <button onClick={() => setActiveView('task_plan')} className={getButtonClass('task_plan')}>{t('taskPlan')}</button>}
         {hasPermission('view_supervisory_tools') && <button onClick={() => setActiveView('supervisory_tools')} className={getButtonClass('supervisory_tools')}>{t('supervisoryTools')}</button>}
