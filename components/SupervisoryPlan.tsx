@@ -39,13 +39,14 @@ const PlanPerformanceDashboard: React.FC<{ planData: SupervisoryPlan }> = ({ pla
 
         // 2. Performance by Domain
         const initialDomains: {[domain: string]: { planned: number; executed: number }} = {};
-        // FIX: Explicitly type the accumulator `acc` to prevent type inference issues causing `unknown` type errors on property access.
-        const domains = tasks.reduce((acc: {[domain: string]: { planned: number; executed: number }}, task) => {
-            if (!acc[task.domain]) {
-                acc[task.domain] = { planned: 0, executed: 0 };
+        
+        const domains = tasks.reduce<{[key: string]: { planned: number; executed: number }}>((acc, task) => {
+            const domainKey = task.domain;
+            if (!acc[domainKey]) {
+                acc[domainKey] = { planned: 0, executed: 0 };
             }
-            acc[task.domain].planned += Number(task.activityPlanned) || 0;
-            acc[task.domain].executed += Number(task.executed) || 0;
+            acc[domainKey].planned += Number(task.activityPlanned) || 0;
+            acc[domainKey].executed += Number(task.executed) || 0;
             return acc;
         }, initialDomains);
 

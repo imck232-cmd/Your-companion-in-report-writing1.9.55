@@ -1,3 +1,4 @@
+
 import { Teacher, GeneralCriterion, ClassSessionCriterionGroup, School, User, Permission, SupervisoryPlan, SupervisoryPlanWrapper } from './types';
 
 export const INITIAL_SCHOOLS: School[] = [
@@ -356,6 +357,12 @@ export const CLASS_SESSION_EXTENDED_TEMPLATE: ClassSessionCriterionGroup[] = [
       { id: 'cse13c2', label: 'يطرح أسئلة تثير التفكير( عصف، تصنيف، سابرة)', score: 0 },
       { id: 'cse13c3', label: 'يتابع استجابات المتعلمين', score: 0 },
       { id: 'cse13c4', label: 'إغلاق الدرس بملخص أو مراجعة أو نشاط تطبيقي', score: 0 }
+  ]},
+  { id: 'cse14', title: 'يهتم بالواجبات والتصحيح', criteria: [
+      { id: 'cse14c1', label: 'تقديم واجبات وتعيينات مناسبة ومتنوعه', score: 0 },
+      { id: 'cse14c2', label: 'يتابع تنفيذ الواجبات من قبل الطلاب', score: 0 },
+      { id: 'cse14c3', label: 'يصحح الدفاتر أولا بأول', score: 0 },
+      { id: 'cse14c4', label: 'يضع إشارات وتغذية راجعة ويصوب الخطأ', score: 0 },
   ]},
 ];
 
