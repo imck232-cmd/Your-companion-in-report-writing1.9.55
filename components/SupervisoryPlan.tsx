@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { SupervisoryPlan, SupervisoryPlanEntry, SupervisoryPlanWrapper } from '../types';
 import { useLanguage } from '../i18n/LanguageContext';
@@ -40,7 +41,8 @@ const PlanPerformanceDashboard: React.FC<{ planData: SupervisoryPlan }> = ({ pla
         // 2. Performance by Domain
         const initialDomains: {[domain: string]: { planned: number; executed: number }} = {};
         
-        const domains = tasks.reduce<{[key: string]: { planned: number; executed: number }}>((acc, task) => {
+        // FIX: Removed generic from reduce call and explicitly typed accumulator argument 'acc' to avoid "Untyped function calls" error when tasks might be inferred as any in some contexts, and "Property does not exist on unknown" errors.
+        const domains = tasks.reduce((acc: {[key: string]: { planned: number; executed: number }}, task) => {
             const domainKey = task.domain;
             if (!acc[domainKey]) {
                 acc[domainKey] = { planned: 0, executed: 0 };
@@ -414,8 +416,7 @@ const SinglePlanView: React.FC<SinglePlanViewProps> = ({ planWrapper, onUpdate, 
                                 </label>
                                 {monthKeys.map((key, i) => (
                                     <label key={key} className="flex items-center gap-1 text-sm">
-                                        <input type="checkbox" value={key} checked={matchMonths.includes(key)} onChange={e => setMatchMonths(p => e.target.checked ? [...p, key] : p.filter(m => m !== key))} /> {monthNames[i]}
-                                    </label>
+                                        <input type="checkbox" value={key} checked={matchMonths.includes(key)} onChange={e => setMatchMonths(p => e.target.checked ? [...p, key] : p.filter(m => m !== key))} /> {monthNames[i]}</label>
                                 ))}
                                 <button onClick={handleMatchIndicator} className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700">مطابقة المؤشر</button>
                                 <button onClick={handleCancelMatch} className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700">إلغاء المطابقة</button>

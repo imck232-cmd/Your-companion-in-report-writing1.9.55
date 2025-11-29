@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { ClassSessionEvaluationReport, Teacher, ClassSessionCriterionGroup, ClassSessionCriterion, CustomCriterion, SyllabusPlan } from '../types';
 import { useLanguage } from '../i18n/LanguageContext';
@@ -287,8 +288,8 @@ const ClassSessionEvaluationForm: React.FC<ClassSessionEvaluationFormProps> = ({
     setFormData(prev => ({
         ...prev,
         positives: finalPositives,
-        notesForImprovement: notes.join('\n'),
-        recommendations: recommendations.join('\n')
+        notesForImprovement: notes.map(n => `- ${n}`).join('\n'),
+        recommendations: recommendations.map(r => `- ${r}`).join('\n')
     }));
   };
 
@@ -540,9 +541,30 @@ const ClassSessionEvaluationForm: React.FC<ClassSessionEvaluationFormProps> = ({
         <div className="text-center">
              <button onClick={generateFeedback} className="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all transform hover:scale-105 font-semibold">{t('generateFeedback')}</button>
         </div>
-        <textarea name="positives" placeholder={t('positives')} value={formData.positives} onChange={handleInputChange} className="w-full p-2 border rounded h-24 focus:ring-primary focus:border-primary transition bg-inherit" />
-        <textarea name="notesForImprovement" placeholder={t('notesForImprovement')} value={formData.notesForImprovement} onChange={handleInputChange} className="w-full p-2 border rounded h-24 focus:ring-primary focus:border-primary transition bg-inherit" />
-        <textarea name="recommendations" placeholder={t('recommendations')} value={formData.recommendations} onChange={handleInputChange} className="w-full p-2 border rounded h-24 focus:ring-primary focus:border-primary transition bg-inherit" />
+        <CustomizableInputSection
+            title={t('positives')}
+            value={formData.positives}
+            onChange={(value) => handleCustomSectionChange('positives', value)}
+            defaultItems={[]}
+            localStorageKey="customPositives"
+            isList={true}
+        />
+        <CustomizableInputSection
+            title={t('notesForImprovement')}
+            value={formData.notesForImprovement}
+            onChange={(value) => handleCustomSectionChange('notesForImprovement', value)}
+            defaultItems={[]}
+            localStorageKey="customNotesForImprovement"
+            isList={true}
+        />
+        <CustomizableInputSection
+            title={t('recommendations')}
+            value={formData.recommendations}
+            onChange={(value) => handleCustomSectionChange('recommendations', value)}
+            defaultItems={[]}
+            localStorageKey="customRecommendations"
+            isList={true}
+        />
         <div>
             <div className="flex justify-between items-center mb-1">
                 <label htmlFor="employeeComment" className="font-semibold">{t('employeeComment')}</label>
