@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import { SupervisoryPlan, SupervisoryPlanEntry, SupervisoryPlanWrapper } from '../types';
+import { SupervisoryPlan, SupervisoryPlanEntry, SupervisoryPlanWrapper, OffPlanItem, StrengthItem, ProblemItem, RecommendationItem } from '../types';
 import { useLanguage } from '../i18n/LanguageContext';
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { INITIAL_SUPERVISORY_PLAN } from '../constants';
@@ -28,6 +28,75 @@ const InputHeader: React.FC<{ value: string; onChange: (value: string) => void; 
     <input type="text" value={value} onChange={e => onChange(e.target.value)} className={`w-full bg-transparent text-center font-bold p-1 ${className}`} />
 );
 
+// --- Generic Dynamic Table Component ---
+interface DynamicTableColumn {
+    key: string;
+    header: string;
+    width?: string;
+    type?: 'text' | 'number';
+}
+
+interface DynamicTableProps<T> {
+    title: string;
+    data: T[];
+    columns: DynamicTableColumn[];
+    onAddRow: () => void;
+    onUpdateRow: (id: string, field: keyof T, value: string) => void;
+    onDeleteRow: (id: string) => void;
+}
+
+const DynamicTable = <T extends { id: string }>({ title, data, columns, onAddRow, onUpdateRow, onDeleteRow }: DynamicTableProps<T>) => {
+    return (
+        <div className="border rounded-lg mb-6 overflow-hidden">
+            <div className="bg-gray-100 p-3 flex justify-between items-center border-b">
+                <h4 className="font-bold text-lg text-primary">{title}</h4>
+                <button onClick={onAddRow} className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 text-sm font-bold">
+                    + إضافة عنصر
+                </button>
+            </div>
+            <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                    <thead className="bg-gray-200">
+                        <tr>
+                            <th className="p-2 border w-12 text-center">م</th>
+                            {columns.map(col => (
+                                <th key={col.key} className={`p-2 border text-center ${col.width || ''}`}>{col.header}</th>
+                            ))}
+                            <th className="p-2 border w-10"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {data.map((row, index) => (
+                            <tr key={row.id} className="hover:bg-gray-50">
+                                <td className="p-2 border text-center font-semibold">{index + 1}</td>
+                                {columns.map(col => (
+                                    <td key={col.key} className="p-0 border">
+                                        <textarea 
+                                            value={(row as any)[col.key] || ''} 
+                                            onChange={e => onUpdateRow(row.id, col.key as keyof T, e.target.value)}
+                                            className="w-full h-full p-2 bg-transparent resize-none focus:bg-white min-h-[40px]"
+                                            rows={1}
+                                        />
+                                    </td>
+                                ))}
+                                <td className="p-2 border text-center">
+                                    <button onClick={() => onDeleteRow(row.id)} className="text-red-500 hover:text-red-700 font-bold">X</button>
+                                </td>
+                            </tr>
+                        ))}
+                        {data.length === 0 && (
+                            <tr>
+                                <td colSpan={columns.length + 2} className="p-4 text-center text-gray-500">لا توجد بيانات. اضغط "إضافة عنصر" للبدء.</td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+};
+
+
 const PlanPerformanceDashboard: React.FC<{ planData: SupervisoryPlan }> = ({ planData }) => {
     const { t } = useLanguage();
 
@@ -42,7 +111,7 @@ const PlanPerformanceDashboard: React.FC<{ planData: SupervisoryPlan }> = ({ pla
         // 2. Performance by Domain
         const initialDomains: {[domain: string]: { planned: number; executed: number }} = {};
         
-        // FIX: Removed generic from reduce call and explicitly typed accumulator argument 'acc' to avoid "Untyped function calls" error when tasks might be inferred as any in some contexts, and "Property does not exist on unknown" errors.
+        // FIX: Removed generic from reduce call and explicitly typed accumulator argument 'acc' to avoid "Untyped function calls" error.
         const domains = tasks.reduce((acc: {[key: string]: { planned: number; executed: number }}, task) => {
             const domainKey = task.domain;
             if (!acc[domainKey]) {
@@ -358,21 +427,58 @@ const SinglePlanView: React.FC<SinglePlanViewProps> = ({ planWrapper, onUpdate, 
         }));
     };
 
-    // Off-Plan Activities Logic using CustomizableInputSection logic
-    // We treat the 'offPlanActivities' array in planWrapper as the value.
-    // However, CustomizableInputSection expects a string value joined by newlines for list mode.
-    const offPlanActivitiesString = useMemo(() => {
-        return (planWrapper.offPlanActivities || []).map(a => `- ${a}`).join('\n');
-    }, [planWrapper.offPlanActivities]);
+    // --- Specific Handlers for the 4 New Tables ---
 
-    const handleOffPlanChange = (value: string) => {
-        // Parse list format back to array
-        const items = value.split('\n')
-            .map(line => line.trim())
-            .filter(line => line.startsWith('- '))
-            .map(line => line.substring(2));
-        
-        onUpdate({ ...planWrapper, offPlanActivities: items });
+    // 1. Off-Plan
+    const handleAddOffPlan = () => {
+        const newItem: OffPlanItem = { id: `op-${Date.now()}`, domain: '', activity: '', reason: '', notes: '' };
+        onUpdate({ ...planWrapper, offPlanItems: [...(planWrapper.offPlanItems || []), newItem] });
+    };
+    const handleUpdateOffPlan = (id: string, field: keyof OffPlanItem, value: string) => {
+        const newItems = (planWrapper.offPlanItems || []).map(i => i.id === id ? { ...i, [field]: value } : i);
+        onUpdate({ ...planWrapper, offPlanItems: newItems });
+    };
+    const handleDeleteOffPlan = (id: string) => {
+        onUpdate({ ...planWrapper, offPlanItems: (planWrapper.offPlanItems || []).filter(i => i.id !== id) });
+    };
+
+    // 2. Strengths
+    const handleAddStrength = () => {
+        const newItem: StrengthItem = { id: `st-${Date.now()}`, strength: '', reinforcement: '', notes: '' };
+        onUpdate({ ...planWrapper, strengthItems: [...(planWrapper.strengthItems || []), newItem] });
+    };
+    const handleUpdateStrength = (id: string, field: keyof StrengthItem, value: string) => {
+        const newItems = (planWrapper.strengthItems || []).map(i => i.id === id ? { ...i, [field]: value } : i);
+        onUpdate({ ...planWrapper, strengthItems: newItems });
+    };
+    const handleDeleteStrength = (id: string) => {
+        onUpdate({ ...planWrapper, strengthItems: (planWrapper.strengthItems || []).filter(i => i.id !== id) });
+    };
+
+    // 3. Problems
+    const handleAddProblem = () => {
+        const newItem: ProblemItem = { id: `pr-${Date.now()}`, problem: '', solution: '', notes: '' };
+        onUpdate({ ...planWrapper, problemItems: [...(planWrapper.problemItems || []), newItem] });
+    };
+    const handleUpdateProblem = (id: string, field: keyof ProblemItem, value: string) => {
+        const newItems = (planWrapper.problemItems || []).map(i => i.id === id ? { ...i, [field]: value } : i);
+        onUpdate({ ...planWrapper, problemItems: newItems });
+    };
+    const handleDeleteProblem = (id: string) => {
+        onUpdate({ ...planWrapper, problemItems: (planWrapper.problemItems || []).filter(i => i.id !== id) });
+    };
+
+    // 4. Recommendations
+    const handleAddRecommendation = () => {
+        const newItem: RecommendationItem = { id: `rec-${Date.now()}`, recommendation: '' };
+        onUpdate({ ...planWrapper, recommendationItems: [...(planWrapper.recommendationItems || []), newItem] });
+    };
+    const handleUpdateRecommendation = (id: string, field: keyof RecommendationItem, value: string) => {
+        const newItems = (planWrapper.recommendationItems || []).map(i => i.id === id ? { ...i, [field]: value } : i);
+        onUpdate({ ...planWrapper, recommendationItems: newItems });
+    };
+    const handleDeleteRecommendation = (id: string) => {
+        onUpdate({ ...planWrapper, recommendationItems: (planWrapper.recommendationItems || []).filter(i => i.id !== id) });
     };
 
 
@@ -411,17 +517,62 @@ const SinglePlanView: React.FC<SinglePlanViewProps> = ({ planWrapper, onUpdate, 
                         </div>
                     </div>
                     
-                    {/* Off-Plan Activities Section */}
-                    <div className="p-4 border rounded-lg bg-yellow-50/50">
-                        <CustomizableInputSection 
-                            title="أنشطة خارج الخطة"
-                            value={offPlanActivitiesString}
-                            onChange={handleOffPlanChange}
-                            defaultItems={[]}
-                            localStorageKey={`offPlan_presets_${planWrapper.id}`} // Unique key per plan to avoid conflicts or shared presets? Maybe general is better? Using plan ID ensures specific context.
-                            isList={true}
+                    {/* --- New Sections Tables --- */}
+                    <div className="space-y-6">
+                        <DynamicTable<OffPlanItem> 
+                            title="أولاً: أنشطة خارج الخطة"
+                            data={planWrapper.offPlanItems || []}
+                            columns={[
+                                { key: 'domain', header: 'المجال', width: 'w-1/6' },
+                                { key: 'activity', header: 'النشاط', width: 'w-1/3' },
+                                { key: 'reason', header: 'أسباب التنفيذ', width: 'w-1/4' },
+                                { key: 'notes', header: 'ملاحظات', width: 'w-1/6' }
+                            ]}
+                            onAddRow={handleAddOffPlan}
+                            onUpdateRow={handleUpdateOffPlan}
+                            onDeleteRow={handleDeleteOffPlan}
+                        />
+
+                        <DynamicTable<StrengthItem> 
+                            title="ثانياً: نقاط القوة وآلية تعزيزها"
+                            data={planWrapper.strengthItems || []}
+                            columns={[
+                                { key: 'strength', header: 'نقاط القوة', width: 'w-1/3' },
+                                { key: 'reinforcement', header: 'آلية تعزيزها', width: 'w-1/3' },
+                                { key: 'notes', header: 'ملاحظات', width: 'w-1/3' }
+                            ]}
+                            onAddRow={handleAddStrength}
+                            onUpdateRow={handleUpdateStrength}
+                            onDeleteRow={handleDeleteStrength}
+                        />
+
+                        <DynamicTable<ProblemItem> 
+                            title="ثالثاً: أبرز المشكلات وكيف تم التغلب عليها"
+                            data={planWrapper.problemItems || []}
+                            columns={[
+                                { key: 'problem', header: 'المشكلة', width: 'w-1/3' },
+                                { key: 'solution', header: 'التعامل معها', width: 'w-1/3' },
+                                { key: 'notes', header: 'ملاحظات', width: 'w-1/3' }
+                            ]}
+                            onAddRow={handleAddProblem}
+                            onUpdateRow={handleUpdateProblem}
+                            onDeleteRow={handleDeleteProblem}
+                        />
+
+                        <DynamicTable<RecommendationItem> 
+                            title="رابعاً: التوصيات والمقترحات"
+                            data={planWrapper.recommendationItems || []}
+                            columns={[
+                                { key: 'recommendation', header: 'التوصيات والمقترحات', width: 'w-full' }
+                            ]}
+                            onAddRow={handleAddRecommendation}
+                            onUpdateRow={handleUpdateRecommendation}
+                            onDeleteRow={handleDeleteRecommendation}
                         />
                     </div>
+
+                    <div className="border-t-4 border-gray-300 my-8"></div>
+                    <h3 className="text-xl font-bold text-center bg-gray-200 p-2 rounded">خامساً: خطة الإشراف ومؤشرات الأداء</h3>
 
                     <div className="p-4 border rounded-lg bg-gray-50 space-y-4">
                         <div className="flex flex-wrap gap-4">
@@ -615,6 +766,11 @@ const SupervisoryPlanComponent: React.FC<SupervisoryPlanProps> = ({ plans, setPl
             planData: JSON.parse(JSON.stringify(INITIAL_SUPERVISORY_PLAN)),
             isCollapsed: false,
             title: '', 
+            offPlanItems: [],
+            strengthItems: [],
+            problemItems: [],
+            recommendationItems: [],
+            // Legacy
             offPlanActivities: [],
         };
         setPlans(prev => [newPlan, ...prev.map(p => ({...p, isCollapsed: true}))]);

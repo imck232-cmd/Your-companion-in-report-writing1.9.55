@@ -324,11 +324,12 @@ export const exportAggregatedToTxt = (reports: Report[], teachers: Teacher[]) =>
 
 export const exportAggregatedToPdf = (reports: Report[], teachers: Teacher[]) => {
     const doc = setupPdfDoc();
-    const teacherMap = new Map(teachers.map(t => [t.id, t]));
+    const teacherMap = new Map(teachers.map(t => [t.id, t.name])); // Ensure teacherMap is used or removed if logic changed. Here logic is slightly mixed, let's fix:
+    const teacherObjMap = new Map(teachers.map(t => [t.id, t]));
     let y = 20;
 
     reports.forEach((report, index) => {
-        const teacher = teacherMap.get(report.teacherId);
+        const teacher = teacherObjMap.get(report.teacherId);
         if (teacher) {
             if (index > 0) doc.addPage();
             y = 20;
@@ -1090,16 +1091,39 @@ const generateSupervisoryPlanText = (plan: SupervisoryPlanWrapper, selectedMonth
     content += `*إعداد المشرف التربوي:* ${plan.supervisorName}\n`;
     content += `*تاريخ الإنشاء:* ${new Date(plan.createdAt).toLocaleDateString()}\n`;
     
-    // Add Off-Plan Activities
-    if (plan.offPlanActivities && plan.offPlanActivities.length > 0) {
-        content += SEPARATOR;
-        content += `*--- أنشطة خارج الخطة ---*\n`;
-        plan.offPlanActivities.forEach(activity => {
-            content += `- ${activity}\n`;
+    // Off-Plan Activities
+    if (plan.offPlanItems && plan.offPlanItems.length > 0) {
+        content += SEPARATOR + `*--- أولاً: أنشطة خارج الخطة ---*\n`;
+        plan.offPlanItems.forEach((item, i) => {
+            content += `${i+1}. *النشاط:* ${item.activity} | *المجال:* ${item.domain}\n   *السبب:* ${item.reason} | *ملاحظات:* ${item.notes}\n`;
         });
     }
 
-    content += SEPARATOR;
+    // Strengths
+    if (plan.strengthItems && plan.strengthItems.length > 0) {
+        content += SEPARATOR + `*--- ثانياً: نقاط القوة وآلية تعزيزها ---*\n`;
+        plan.strengthItems.forEach((item, i) => {
+            content += `${i+1}. *نقطة القوة:* ${item.strength}\n   *آلية التعزيز:* ${item.reinforcement} | *ملاحظات:* ${item.notes}\n`;
+        });
+    }
+
+    // Problems
+    if (plan.problemItems && plan.problemItems.length > 0) {
+        content += SEPARATOR + `*--- ثالثاً: أبرز المشكلات وكيف تم التغلب عليها ---*\n`;
+        plan.problemItems.forEach((item, i) => {
+            content += `${i+1}. *المشكلة:* ${item.problem}\n   *التعامل معها:* ${item.solution} | *ملاحظات:* ${item.notes}\n`;
+        });
+    }
+
+    // Recommendations
+    if (plan.recommendationItems && plan.recommendationItems.length > 0) {
+        content += SEPARATOR + `*--- رابعاً: التوصيات والمقترحات ---*\n`;
+        plan.recommendationItems.forEach((item, i) => {
+            content += `${i+1}. ${item.recommendation}\n`;
+        });
+    }
+
+    content += SEPARATOR + `*--- خامساً: خطة الإشراف ومؤشرات الأداء ---*\n`;
 
     // Filter Logic for text export
     const rowsToInclude = plan.planData.filter(entry => {
@@ -1165,20 +1189,56 @@ export const exportSupervisoryPlan = (
         doc.text(dynamicTitle, doc.internal.pageSize.width / 2, yPos, { align: 'center' });
         yPos += 7;
         doc.text(`إعداد: ${plan.supervisorName}`, doc.internal.pageSize.width / 2, yPos, { align: 'center' });
-        yPos += 10;
+        yPos += 15;
 
-        // Off-Plan Activities Section in PDF
-        if (plan.offPlanActivities && plan.offPlanActivities.length > 0) {
-            doc.setFontSize(12);
-            doc.text("أنشطة خارج الخطة:", 280, yPos, { align: 'right' }); // Approx right margin for landscape A4
-            yPos += 7;
-            doc.setFontSize(10);
-            plan.offPlanActivities.forEach(act => {
-                doc.text(`- ${act}`, 280, yPos, { align: 'right' });
-                yPos += 5;
+        // Helper for tables in PDF
+        const addSectionTable = (title: string, head: any[][], body: any[][]) => {
+            doc.setFontSize(14);
+            doc.text(title, 280, yPos, { align: 'right' });
+            yPos += 5;
+            doc.autoTable({
+                startY: yPos,
+                head: head,
+                body: body,
+                styles: { font: 'Amiri', halign: 'right', fontSize: 10 },
+                headStyles: getHeadStyles(),
+                margin: { right: 10, left: 10 }
             });
-            yPos += 5; // Extra spacing before table
+            yPos = doc.lastAutoTable.finalY + 15;
+            // Add page if needed
+            if (yPos > 180) {
+                doc.addPage();
+                yPos = 20;
+            }
+        };
+
+        // 1. Off-Plan
+        if (plan.offPlanItems && plan.offPlanItems.length > 0) {
+            const body = plan.offPlanItems.map((item, i) => [item.notes, item.reason, item.activity, item.domain, i + 1]);
+            addSectionTable("أولاً: أنشطة خارج الخطة", [['ملاحظات', 'أسباب التنفيذ', 'النشاط', 'المجال', 'م']], body);
         }
+
+        // 2. Strengths
+        if (plan.strengthItems && plan.strengthItems.length > 0) {
+            const body = plan.strengthItems.map((item, i) => [item.notes, item.reinforcement, item.strength, i + 1]);
+            addSectionTable("ثانياً: نقاط القوة وآلية تعزيزها", [['ملاحظات', 'آلية تعزيزها', 'نقاط القوة', 'م']], body);
+        }
+
+        // 3. Problems
+        if (plan.problemItems && plan.problemItems.length > 0) {
+            const body = plan.problemItems.map((item, i) => [item.notes, item.solution, item.problem, i + 1]);
+            addSectionTable("ثالثاً: أبرز المشكلات وكيف تم التغلب عليها", [['ملاحظات', 'التعامل معها', 'المشكلة', 'م']], body);
+        }
+
+        // 4. Recommendations
+        if (plan.recommendationItems && plan.recommendationItems.length > 0) {
+            const body = plan.recommendationItems.map((item, i) => [item.recommendation, i + 1]);
+            addSectionTable("رابعاً: التوصيات والمقترحات", [['التوصيات والمقترحات', 'م']], body);
+        }
+
+        doc.setFontSize(14);
+        doc.text("خامساً: خطة الإشراف ومؤشرات الأداء", 280, yPos, { align: 'right' });
+        yPos += 5;
 
         const monthKeys = ["dhu_al_hijjah", "muharram", "safar", "rabi_al_awwal", "rabi_al_thani", "jumada_al_ula", "jumada_al_thani", "rajab", "shaban"];
         const monthNames = ["ذو الحجة", "محرم", "صفر", "ربيع الاول", "ربيع الأخر", "جمادى الاولى", "جمادى الأخر", "رجب", "شعبان"];
@@ -1225,12 +1285,39 @@ export const exportSupervisoryPlan = (
         data.push([`إعداد: ${plan.supervisorName}`]);
         data.push([]);
 
-        // Off-Plan Activities in Excel
-        if (plan.offPlanActivities && plan.offPlanActivities.length > 0) {
-            data.push(["أنشطة خارج الخطة:"]);
-            plan.offPlanActivities.forEach(act => data.push([`- ${act}`]));
-            data.push([]);
+        // Helper for Excel Tables
+        const addExcelSection = (title: string, headers: string[], rows: any[][]) => {
+            data.push([title]);
+            data.push(headers);
+            rows.forEach(row => data.push(row));
+            data.push([]); // Spacer
+        };
+
+        // 1. Off-Plan
+        if (plan.offPlanItems && plan.offPlanItems.length > 0) {
+            addExcelSection("أولاً: أنشطة خارج الخطة", ['م', 'المجال', 'النشاط', 'أسباب التنفيذ', 'ملاحظات'], 
+                plan.offPlanItems.map((item, i) => [i + 1, item.domain, item.activity, item.reason, item.notes]));
         }
+
+        // 2. Strengths
+        if (plan.strengthItems && plan.strengthItems.length > 0) {
+            addExcelSection("ثانياً: نقاط القوة وآلية تعزيزها", ['م', 'نقاط القوة', 'آلية تعزيزها', 'ملاحظات'], 
+                plan.strengthItems.map((item, i) => [i + 1, item.strength, item.reinforcement, item.notes]));
+        }
+
+        // 3. Problems
+        if (plan.problemItems && plan.problemItems.length > 0) {
+            addExcelSection("ثالثاً: أبرز المشكلات وكيف تم التغلب عليها", ['م', 'المشكلة', 'التعامل معها', 'ملاحظات'], 
+                plan.problemItems.map((item, i) => [i + 1, item.problem, item.solution, item.notes]));
+        }
+
+        // 4. Recommendations
+        if (plan.recommendationItems && plan.recommendationItems.length > 0) {
+            addExcelSection("رابعاً: التوصيات والمقترحات", ['م', 'التوصيات والمقترحات'], 
+                plan.recommendationItems.map((item, i) => [i + 1, item.recommendation]));
+        }
+
+        data.push(["خامساً: خطة الإشراف ومؤشرات الأداء"]);
 
         const head1 = [
             headers.domain, headers.objective, headers.indicator, '', '', headers.activity, '',
@@ -1261,23 +1348,30 @@ export const exportSupervisoryPlan = (
         
         const ws = XLSX.utils.aoa_to_sheet(data);
         
-        // Adjust merges based on rows added for title and off-plan
-        const headerRowIndex = 3 + (plan.offPlanActivities && plan.offPlanActivities.length > 0 ? plan.offPlanActivities.length + 2 : 0);
+        // Calculate where the main plan starts for merging logic
+        // Title(2) + Spacer(1) + OffPlan(header+rows+spacer) + Strength...
+        // This is complex to calculate dynamically for merging. 
+        // Simple approach: Find the row index where "خامساً..." is located.
+        const mainPlanStartRow = data.findIndex(row => row[0] === "خامساً: خطة الإشراف ومؤشرات الأداء");
+        
+        if (mainPlanStartRow !== -1) {
+            const headerRowIndex = mainPlanStartRow + 1; // head1 starts after title
 
-        if(!ws['!merges']) ws['!merges'] = [];
-        // Merging header cells (dynamically calculate row indices)
-        const r1 = headerRowIndex;
-        const r2 = headerRowIndex + 1;
+            if(!ws['!merges']) ws['!merges'] = [];
+            // Merging header cells (dynamically calculate row indices)
+            const r1 = headerRowIndex;
+            const r2 = headerRowIndex + 1;
 
-        ws['!merges'].push({ s: { r: r1, c: 0 }, e: { r: r2, c: 0 } }); // Domain
-        ws['!merges'].push({ s: { r: r1, c: 1 }, e: { r: r2, c: 1 } }); // Objective
-        ws['!merges'].push({ s: { r: r1, c: 2 }, e: { r: r1, c: 4 } }); // Indicator (main)
-        ws['!merges'].push({ s: { r: r1, c: 5 }, e: { r: r1, c: 6 } }); // Activity (main)
-        ws['!merges'].push({ s: { r: r1, c: 7 }, e: { r: r1, c: 15 } }); // Months (main)
-        ws['!merges'].push({ s: { r: r1, c: 16 }, e: { r: r2, c: 16 } }); // Executed
-        ws['!merges'].push({ s: { r: r1, c: 17 }, e: { r: r2, c: 17 } }); // Cost
-        ws['!merges'].push({ s: { r: r1, c: 18 }, e: { r: r2, c: 18 } }); // Reasons
-        ws['!merges'].push({ s: { r: r1, c: 19 }, e: { r: r2, c: 19 } }); // Notes
+            ws['!merges'].push({ s: { r: r1, c: 0 }, e: { r: r2, c: 0 } }); // Domain
+            ws['!merges'].push({ s: { r: r1, c: 1 }, e: { r: r2, c: 1 } }); // Objective
+            ws['!merges'].push({ s: { r: r1, c: 2 }, e: { r: r1, c: 4 } }); // Indicator (main)
+            ws['!merges'].push({ s: { r: r1, c: 5 }, e: { r: r1, c: 6 } }); // Activity (main)
+            ws['!merges'].push({ s: { r: r1, c: 7 }, e: { r: r1, c: 15 } }); // Months (main)
+            ws['!merges'].push({ s: { r: r1, c: 16 }, e: { r: r2, c: 16 } }); // Executed
+            ws['!merges'].push({ s: { r: r1, c: 17 }, e: { r: r2, c: 17 } }); // Cost
+            ws['!merges'].push({ s: { r: r1, c: 18 }, e: { r: r2, c: 18 } }); // Reasons
+            ws['!merges'].push({ s: { r: r1, c: 19 }, e: { r: r2, c: 19 } }); // Notes
+        }
         
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Supervisory Plan");

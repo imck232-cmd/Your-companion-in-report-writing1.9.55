@@ -375,6 +375,34 @@ export interface SupervisoryPlanEntry {
 
 export type SupervisoryPlan = SupervisoryPlanEntry[];
 
+// --- New Table Structures for Supervisory Plan ---
+export interface OffPlanItem {
+    id: string;
+    domain: string;
+    activity: string;
+    reason: string;
+    notes: string;
+}
+
+export interface StrengthItem {
+    id: string;
+    strength: string;
+    reinforcement: string;
+    notes: string;
+}
+
+export interface ProblemItem {
+    id: string;
+    problem: string;
+    solution: string;
+    notes: string;
+}
+
+export interface RecommendationItem {
+    id: string;
+    recommendation: string;
+}
+
 export interface SupervisoryPlanWrapper {
   id: string;
   title: string;
@@ -390,5 +418,11 @@ export interface SupervisoryPlanWrapper {
   };
   planData: SupervisoryPlan;
   isCollapsed: boolean;
-  offPlanActivities?: string[]; // New field for activities outside the plan
+  // Updated fields
+  offPlanItems: OffPlanItem[]; 
+  strengthItems: StrengthItem[];
+  problemItems: ProblemItem[];
+  recommendationItems: RecommendationItem[];
+  // Deprecated but kept for migration if needed
+  offPlanActivities?: string[]; 
 }
