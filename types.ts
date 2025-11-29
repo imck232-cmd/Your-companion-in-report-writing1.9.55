@@ -1,3 +1,4 @@
+
 // FIX: Removed an incorrect import of 'ClassSessionCriterionGroup'. The type is defined in this file.
 export type Language = 'ar' | 'en';
 
@@ -389,4 +390,5 @@ export interface SupervisoryPlanWrapper {
   };
   planData: SupervisoryPlan;
   isCollapsed: boolean;
+  offPlanActivities?: string[]; // New field for activities outside the plan
 }

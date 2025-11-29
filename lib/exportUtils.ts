@@ -1,3 +1,4 @@
+
 import { Report, GeneralEvaluationReport, ClassSessionEvaluationReport, Teacher, SpecialReport, Task, PeerVisit, DeliveryRecord, Meeting, SyllabusCoverageReport, SyllabusBranchProgress, DeliverySheet, SyllabusPlan, SupervisoryPlanWrapper } from '../types';
 
 declare const jspdf: any;
@@ -1083,18 +1084,43 @@ export const exportSupervisorySummary = (args: { format: 'txt' | 'pdf' | 'excel'
 
 
 // --- NEW: SUPERVISORY PLAN EXPORT (Overhauled) ---
-const generateSupervisoryPlanText = (plan: SupervisoryPlanWrapper): string => {
+const generateSupervisoryPlanText = (plan: SupervisoryPlanWrapper, selectedMonths?: string[]): string => {
     const dynamicTitle = `خطة الإشراف التربوي للفصل الدراسي ${plan.semester} للعام ${plan.academicYear}`;
     let content = `*${dynamicTitle}*\n`;
     content += `*إعداد المشرف التربوي:* ${plan.supervisorName}\n`;
     content += `*تاريخ الإنشاء:* ${new Date(plan.createdAt).toLocaleDateString()}\n`;
+    
+    // Add Off-Plan Activities
+    if (plan.offPlanActivities && plan.offPlanActivities.length > 0) {
+        content += SEPARATOR;
+        content += `*--- أنشطة خارج الخطة ---*\n`;
+        plan.offPlanActivities.forEach(activity => {
+            content += `- ${activity}\n`;
+        });
+    }
+
     content += SEPARATOR;
 
-    plan.planData.forEach(entry => {
+    // Filter Logic for text export
+    const rowsToInclude = plan.planData.filter(entry => {
+        if (entry.isSummaryRow || entry.isGroupHeader) return true;
+        // If no months selected, include all.
+        if (!selectedMonths || selectedMonths.length === 0) return true;
+        // Otherwise, include only if there is a value in one of the selected months.
+        return selectedMonths.some(month => {
+            const val = (entry.monthlyPlanned as any)[month];
+            return val && val !== '0' && val !== '';
+        });
+    });
+
+    rowsToInclude.forEach(entry => {
         if (entry.isSummaryRow || entry.isGroupHeader) {
             content += `\n--- ${entry.domain} ---\n`;
         } else {
             content += `\n*النشاط:* ${entry.activityText}\n`;
+            // Only show planned for selected months if filtering is active? 
+            // Usually text export is summary, let's keep it simple: just show total executed vs planned for context if needed, 
+            // but the prompt implies filtering rows.
             content += `  *المخطط:* ${entry.activityPlanned} | *المنفذ:* ${entry.executed}\n`;
         }
     });
@@ -1105,12 +1131,23 @@ export const exportSupervisoryPlan = (
     format: 'txt' | 'pdf' | 'excel' | 'whatsapp',
     plan: SupervisoryPlanWrapper,
     headers: any,
-    t: (key: any) => string
+    t: (key: any) => string,
+    selectedMonths: string[] = [] // New parameter for filtering
 ) => {
     const filename = `supervisory_plan_${plan.academicYear.replace(/[\/\s]/g, '_')}`;
 
+    // Filter Logic for all formats
+    const rowsToExport = plan.planData.filter(entry => {
+        if (entry.isSummaryRow || entry.isGroupHeader) return true;
+        if (!selectedMonths || selectedMonths.length === 0) return true;
+        return selectedMonths.some(month => {
+            const val = (entry.monthlyPlanned as any)[month];
+            return val && val !== '0' && val !== '';
+        });
+    });
+
     if (format === 'txt' || format === 'whatsapp') {
-        const content = generateSupervisoryPlanText(plan);
+        const content = generateSupervisoryPlanText(plan, selectedMonths);
         if (format === 'txt') {
             const blob = new Blob([content.replace(/\*/g, '')], { type: 'text/plain;charset=utf-8' });
             const link = document.createElement('a');
@@ -1124,8 +1161,24 @@ export const exportSupervisoryPlan = (
         const doc = setupPdfDoc("landscape");
         const dynamicTitle = `خطة الإشراف التربوي للفصل الدراسي ${plan.semester} للعام ${plan.academicYear}`;
         
-        doc.text(dynamicTitle, doc.internal.pageSize.width / 2, 15, { align: 'center' });
-        doc.text(`إعداد: ${plan.supervisorName}`, doc.internal.pageSize.width / 2, 22, { align: 'center' });
+        let yPos = 15;
+        doc.text(dynamicTitle, doc.internal.pageSize.width / 2, yPos, { align: 'center' });
+        yPos += 7;
+        doc.text(`إعداد: ${plan.supervisorName}`, doc.internal.pageSize.width / 2, yPos, { align: 'center' });
+        yPos += 10;
+
+        // Off-Plan Activities Section in PDF
+        if (plan.offPlanActivities && plan.offPlanActivities.length > 0) {
+            doc.setFontSize(12);
+            doc.text("أنشطة خارج الخطة:", 280, yPos, { align: 'right' }); // Approx right margin for landscape A4
+            yPos += 7;
+            doc.setFontSize(10);
+            plan.offPlanActivities.forEach(act => {
+                doc.text(`- ${act}`, 280, yPos, { align: 'right' });
+                yPos += 5;
+            });
+            yPos += 5; // Extra spacing before table
+        }
 
         const monthKeys = ["dhu_al_hijjah", "muharram", "safar", "rabi_al_awwal", "rabi_al_thani", "jumada_al_ula", "jumada_al_thani", "rajab", "shaban"];
         const monthNames = ["ذو الحجة", "محرم", "صفر", "ربيع الاول", "ربيع الأخر", "جمادى الاولى", "جمادى الأخر", "رجب", "شعبان"];
@@ -1146,7 +1199,8 @@ export const exportSupervisoryPlan = (
             ]
         ];
         
-        const body = plan.planData.map(entry => [
+        // Use rowsToExport instead of full planData
+        const body = rowsToExport.map(entry => [
             entry.domain, entry.objective,
             entry.indicatorText, entry.indicatorCount, entry.evidence,
             entry.activityText, entry.activityPlanned,
@@ -1155,7 +1209,7 @@ export const exportSupervisoryPlan = (
         ]);
 
         doc.autoTable({
-            startY: 30, head: head, body: body,
+            startY: yPos, head: head, body: body,
             styles: { font: 'Amiri', halign: 'right', fontSize: 8, cellPadding: 1 },
             headStyles: { ...getHeadStyles(), fontSize: 9, halign: 'center' },
             bodyStyles: { minCellHeight: 10 },
@@ -1170,6 +1224,13 @@ export const exportSupervisoryPlan = (
         data.push([dynamicTitle]);
         data.push([`إعداد: ${plan.supervisorName}`]);
         data.push([]);
+
+        // Off-Plan Activities in Excel
+        if (plan.offPlanActivities && plan.offPlanActivities.length > 0) {
+            data.push(["أنشطة خارج الخطة:"]);
+            plan.offPlanActivities.forEach(act => data.push([`- ${act}`]));
+            data.push([]);
+        }
 
         const head1 = [
             headers.domain, headers.objective, headers.indicator, '', '', headers.activity, '',
@@ -1187,7 +1248,8 @@ export const exportSupervisoryPlan = (
         data.push(head2);
 
         const monthKeys = ["dhu_al_hijjah", "muharram", "safar", "rabi_al_awwal", "rabi_al_thani", "jumada_al_ula", "jumada_al_thani", "rajab", "shaban"];
-        plan.planData.forEach(entry => {
+        // Use rowsToExport
+        rowsToExport.forEach(entry => {
             data.push([
                 entry.domain, entry.objective,
                 entry.indicatorText || '', entry.indicatorCount || '', entry.evidence || '',
@@ -1199,17 +1261,23 @@ export const exportSupervisoryPlan = (
         
         const ws = XLSX.utils.aoa_to_sheet(data);
         
+        // Adjust merges based on rows added for title and off-plan
+        const headerRowIndex = 3 + (plan.offPlanActivities && plan.offPlanActivities.length > 0 ? plan.offPlanActivities.length + 2 : 0);
+
         if(!ws['!merges']) ws['!merges'] = [];
-        // Merging header cells
-        ws['!merges'].push({ s: { r: 3, c: 0 }, e: { r: 4, c: 0 } }); // Domain
-        ws['!merges'].push({ s: { r: 3, c: 1 }, e: { r: 4, c: 1 } }); // Objective
-        ws['!merges'].push({ s: { r: 3, c: 2 }, e: { r: 3, c: 4 } }); // Indicator (main)
-        ws['!merges'].push({ s: { r: 3, c: 5 }, e: { r: 3, c: 6 } }); // Activity (main)
-        ws['!merges'].push({ s: { r: 3, c: 7 }, e: { r: 3, c: 15 } }); // Months (main)
-        ws['!merges'].push({ s: { r: 3, c: 16 }, e: { r: 4, c: 16 } }); // Executed
-        ws['!merges'].push({ s: { r: 3, c: 17 }, e: { r: 4, c: 17 } }); // Cost
-        ws['!merges'].push({ s: { r: 3, c: 18 }, e: { r: 4, c: 18 } }); // Reasons
-        ws['!merges'].push({ s: { r: 3, c: 19 }, e: { r: 4, c: 19 } }); // Notes
+        // Merging header cells (dynamically calculate row indices)
+        const r1 = headerRowIndex;
+        const r2 = headerRowIndex + 1;
+
+        ws['!merges'].push({ s: { r: r1, c: 0 }, e: { r: r2, c: 0 } }); // Domain
+        ws['!merges'].push({ s: { r: r1, c: 1 }, e: { r: r2, c: 1 } }); // Objective
+        ws['!merges'].push({ s: { r: r1, c: 2 }, e: { r: r1, c: 4 } }); // Indicator (main)
+        ws['!merges'].push({ s: { r: r1, c: 5 }, e: { r: r1, c: 6 } }); // Activity (main)
+        ws['!merges'].push({ s: { r: r1, c: 7 }, e: { r: r1, c: 15 } }); // Months (main)
+        ws['!merges'].push({ s: { r: r1, c: 16 }, e: { r: r2, c: 16 } }); // Executed
+        ws['!merges'].push({ s: { r: r1, c: 17 }, e: { r: r2, c: 17 } }); // Cost
+        ws['!merges'].push({ s: { r: r1, c: 18 }, e: { r: r2, c: 18 } }); // Reasons
+        ws['!merges'].push({ s: { r: r1, c: 19 }, e: { r: r2, c: 19 } }); // Notes
         
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Supervisory Plan");

@@ -5,6 +5,7 @@ import { useLanguage } from '../i18n/LanguageContext';
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { INITIAL_SUPERVISORY_PLAN } from '../constants';
 import { exportSupervisoryPlan } from '../lib/exportUtils';
+import CustomizableInputSection from './CustomizableInputSection';
 
 // --- Props for the main component ---
 interface SupervisoryPlanProps {
@@ -53,7 +54,9 @@ const PlanPerformanceDashboard: React.FC<{ planData: SupervisoryPlan }> = ({ pla
         }, initialDomains);
 
         const domainPerformance = Object.entries(domains).map(([name, data]) => {
-            const percentage = data.planned > 0 ? (data.executed / data.planned) * 100 : 0;
+            // FIX: Explicitly cast data to the expected type to resolve 'unknown' type errors.
+            const d = data as { planned: number; executed: number };
+            const percentage = d.planned > 0 ? (d.executed / d.planned) * 100 : 0;
             return { name, percentage };
         }).filter(d => d.name); // Filter out empty domain names
 
@@ -321,7 +324,8 @@ const SinglePlanView: React.FC<SinglePlanViewProps> = ({ planWrapper, onUpdate, 
     };
     
     const handleExport = (format: 'txt' | 'pdf' | 'excel' | 'whatsapp') => {
-        exportSupervisoryPlan(format, planWrapper, editableHeaders, t);
+        // Pass taskFilterMonths as selectedMonths for filtering
+        exportSupervisoryPlan(format, planWrapper, editableHeaders, t, taskFilterMonths);
     };
 
     const toggleReasonInput = (taskId: string) => {
@@ -352,6 +356,23 @@ const SinglePlanView: React.FC<SinglePlanViewProps> = ({ planWrapper, onUpdate, 
             ...prev,
             [taskId]: { text: '', visible: false }
         }));
+    };
+
+    // Off-Plan Activities Logic using CustomizableInputSection logic
+    // We treat the 'offPlanActivities' array in planWrapper as the value.
+    // However, CustomizableInputSection expects a string value joined by newlines for list mode.
+    const offPlanActivitiesString = useMemo(() => {
+        return (planWrapper.offPlanActivities || []).map(a => `- ${a}`).join('\n');
+    }, [planWrapper.offPlanActivities]);
+
+    const handleOffPlanChange = (value: string) => {
+        // Parse list format back to array
+        const items = value.split('\n')
+            .map(line => line.trim())
+            .filter(line => line.startsWith('- '))
+            .map(line => line.substring(2));
+        
+        onUpdate({ ...planWrapper, offPlanActivities: items });
     };
 
 
@@ -390,6 +411,18 @@ const SinglePlanView: React.FC<SinglePlanViewProps> = ({ planWrapper, onUpdate, 
                         </div>
                     </div>
                     
+                    {/* Off-Plan Activities Section */}
+                    <div className="p-4 border rounded-lg bg-yellow-50/50">
+                        <CustomizableInputSection 
+                            title="أنشطة خارج الخطة"
+                            value={offPlanActivitiesString}
+                            onChange={handleOffPlanChange}
+                            defaultItems={[]}
+                            localStorageKey={`offPlan_presets_${planWrapper.id}`} // Unique key per plan to avoid conflicts or shared presets? Maybe general is better? Using plan ID ensures specific context.
+                            isList={true}
+                        />
+                    </div>
+
                     <div className="p-4 border rounded-lg bg-gray-50 space-y-4">
                         <div className="flex flex-wrap gap-4">
                             <button onClick={() => setShowImport(prev => !prev)} className="px-4 py-2 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700">استيراد خطة</button>
@@ -475,7 +508,7 @@ const SinglePlanView: React.FC<SinglePlanViewProps> = ({ planWrapper, onUpdate, 
                     <div className="p-4 border rounded-lg">
                         <h3 className="text-xl font-bold text-primary mb-4">{t('generatedTasks')}</h3>
                         <div className="mb-4 flex flex-wrap items-center gap-2">
-                            <span className="font-semibold">فلترة حسب الشهر:</span>
+                            <span className="font-semibold">تصفية التصدير والعرض حسب الشهر:</span>
                             <label className="flex items-center gap-1 text-sm font-bold">
                                 <input 
                                     type="checkbox"
@@ -582,6 +615,7 @@ const SupervisoryPlanComponent: React.FC<SupervisoryPlanProps> = ({ plans, setPl
             planData: JSON.parse(JSON.stringify(INITIAL_SUPERVISORY_PLAN)),
             isCollapsed: false,
             title: '', 
+            offPlanActivities: [],
         };
         setPlans(prev => [newPlan, ...prev.map(p => ({...p, isCollapsed: true}))]);
     };

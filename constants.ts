@@ -486,5 +486,6 @@ export const INITIAL_SUPERVISORY_PLANS: SupervisoryPlanWrapper[] = [
         },
         planData: INITIAL_SUPERVISORY_PLAN,
         isCollapsed: false,
+        offPlanActivities: [],
     }
 ];
