@@ -324,7 +324,6 @@ export const exportAggregatedToTxt = (reports: Report[], teachers: Teacher[]) =>
 
 export const exportAggregatedToPdf = (reports: Report[], teachers: Teacher[]) => {
     const doc = setupPdfDoc();
-    const teacherMap = new Map(teachers.map(t => [t.id, t.name])); // Ensure teacherMap is used or removed if logic changed. Here logic is slightly mixed, let's fix:
     const teacherObjMap = new Map(teachers.map(t => [t.id, t]));
     let y = 20;
 
@@ -532,13 +531,14 @@ export const exportMeetingSummary = (args: { format: 'txt' | 'pdf' | 'excel' | '
     const { format, stats, dateRange, t } = args;
     const filename = `meeting_summary_${dateRange.start}_to_${dateRange.end}`;
     
-    let textContent = `*📊 ${t('meetingOutcomesReport')}*\n`;
-    textContent += `*📅 ${t('from_date')}:* ${dateRange.start} | *${t('to_date')}:* ${dateRange.end}\n`;
-    textContent += SEPARATOR;
-    textContent += `*${t('totalOutcomes')}:* ${stats.total}\n`;
-    textContent += `*✅ ${t('executed')}:* ${stats.executed} (${stats.percentages.executed.toFixed(1)}%)\n`;
-    textContent += `*⏳ ${t('inProgress')}:* ${stats.inProgress} (${stats.percentages.inProgress.toFixed(1)}%)\n`;
-    textContent += `*❌ ${t('notExecuted')}:* ${stats.notExecuted} (${stats.percentages.notExecuted.toFixed(1)}%)\n`;
+    let textContent = `${SEPARATOR}`;
+    textContent += `📊 *${t('meetingOutcomesReport')}*\n`;
+    textContent += `📅 ${t('from_date')}: ${dateRange.start} | ${t('to_date')}: ${dateRange.end}\n`;
+    textContent += `${SEPARATOR}`;
+    textContent += `📌 ${t('totalOutcomes')}: ${stats.total}\n`;
+    textContent += `✅ ${t('executed')}: ${stats.executed} (${stats.percentages.executed.toFixed(1)}%)\n`;
+    textContent += `⏳ ${t('inProgress')}: ${stats.inProgress} (${stats.percentages.inProgress.toFixed(1)}%)\n`;
+    textContent += `❌ ${t('notExecuted')}: ${stats.notExecuted} (${stats.percentages.notExecuted.toFixed(1)}%)\n`;
 
     if (format === 'txt') {
         const blob = new Blob([textContent.replace(/\*/g, '')], { type: 'text/plain;charset=utf-8' });
@@ -858,33 +858,51 @@ const openInNewWindow = (content: string, title: string) => {
 
 const generateKeyMetricsText = (stats: any, t: (key: any) => string): string => {
     if (!stats) return t('noDataForPeriod');
-    let content = `${t('usageStatistics')}\n`;
-    content += SEPARATOR;
-    content += `${t('strategiesUsed')}: ${stats.percentages.strategies.toFixed(1)}%\n`;
-    content += `${t('toolsUsed')}: ${stats.percentages.tools.toFixed(1)}%\n`;
-    content += `${t('sourcesUsed')}: ${stats.percentages.sources.toFixed(1)}%\n`;
-    content += `${t('programsUsed')}: ${stats.percentages.programs.toFixed(1)}%\n`;
+    
+    let content = `${SEPARATOR}\n`;
+    content += `📊 *${t('usageStatistics')}*\n`;
+    content += `${SEPARATOR}`;
+    content += `📈 *${t('strategiesUsed')}*: ${stats.percentages.strategies.toFixed(1)}%\n`;
+    content += `🛠️ *${t('toolsUsed')}*: ${stats.percentages.tools.toFixed(1)}%\n`;
+    content += `📚 *${t('sourcesUsed')}*: ${stats.percentages.sources.toFixed(1)}%\n`;
+    content += `💻 *${t('programsUsed')}*: ${stats.percentages.programs.toFixed(1)}%\n`;
 
     const generateDetails = (title: string, data: any) => {
-        content += `${SEPARATOR}${title}\n`;
+        content += `${SEPARATOR}\n`;
+        content += `📌 *${title}*\n`;
         if (Object.keys(data).length === 0) {
             content += `(${t('noDataForPeriod')})\n`;
             return;
         }
-        Object.entries(data).forEach(([item, teachers]) => {
-            content += `  - ${item}:\n`;
-            // FIX: Correctly type `teachers` to resolve type inference issues in `sort` and `forEach`.
-            // FIX: Explicitly typed the destructured parameters to resolve the "Type 'unknown' is not assignable to type 'string'" error.
-            Object.entries(teachers as Record<string, number>).sort(([, a], [, b]) => b - a).forEach(([teacher, count]: [string, any]) => {
-                content += `    - ${teacher} (${count})\n`;
-            });
+        Object.entries(data).sort(([,a], [,b]) => (b as any).percentage - (a as any).percentage).forEach(([item, data]) => {
+            const itemData = data as any; // { count: number, target: number, percentage: number }
+            content += `\n🔸 *${item}*\n`;
+            // Iterate over teachers in a clean way if the structure supports it, otherwise adapt.
+            // Wait, the structure in calculatedStats.details[type] is { teacherName: { count, target, percentage } }.
+            // The argument `data` here IS that object.
+            // Let's refactor based on correct structure: details[type] -> { teacherName: { ... } }
+        });
+    };
+    
+    // Correct iteration based on structure: { teacherName: { count, target, percentage } }
+    const generateCategoryDetails = (categoryTitle: string, teacherData: any) => {
+        content += `${SEPARATOR}\n`;
+        content += `📌 *${categoryTitle}*\n`;
+        if (Object.keys(teacherData).length === 0) {
+            content += `   (${t('noDataForPeriod')})\n`;
+            return;
+        }
+        Object.entries(teacherData).sort(([,a], [,b]) => (b as any).percentage - (a as any).percentage).forEach(([teacher, stats]) => {
+            const s = stats as any;
+            const icon = s.percentage >= 100 ? '✅' : s.percentage >= 50 ? '⚠️' : '❌';
+            content += `   🔹 ${teacher} | ${icon} ${s.percentage.toFixed(0)}% (${s.count}/${s.target})\n`;
         });
     };
 
-    generateDetails(t('strategiesUsed'), stats.details.strategies);
-    generateDetails(t('toolsUsed'), stats.details.tools);
-    generateDetails(t('sourcesUsed'), stats.details.sources);
-    generateDetails(t('programsUsed'), stats.details.programs);
+    generateCategoryDetails(t('strategiesUsed'), stats.details.strategies);
+    generateCategoryDetails(t('toolsUsed'), stats.details.tools);
+    generateCategoryDetails(t('sourcesUsed'), stats.details.sources);
+    generateCategoryDetails(t('programsUsed'), stats.details.programs);
     
     return content;
 };
@@ -896,8 +914,8 @@ export const exportKeyMetrics = (format: 'txt' | 'pdf' | 'excel' | 'whatsapp', s
     if (format === 'txt') {
         openInNewWindow(textContent, t('usageStatistics'));
     } else if (format === 'whatsapp') {
-        const whatsappContent = textContent.replace(/\n/g, '%0A');
-        window.open(`https://api.whatsapp.com/send?text=${whatsappContent}`, '_blank');
+        const whatsappContent = textContent;
+        window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(whatsappContent)}`, '_blank');
     } else if (format === 'pdf') {
         const doc = setupPdfDoc();
         let y = 20;
@@ -919,10 +937,13 @@ export const exportKeyMetrics = (format: 'txt' | 'pdf' | 'excel' | 'whatsapp', s
         const addDetailsToPdf = (title: string, data: any) => {
             if(y > 250) { doc.addPage(); y = 20; }
             doc.text(title, 200, y, { align: 'right' }); y += 7;
-            const body = Object.entries(data).flatMap(([item, teachers]) => 
-                Object.entries(teachers as any).sort(([, a], [, b]) => (b as number) - (a as number)).map(([teacher, count]) => [count, teacher, item])
-            );
-            doc.autoTable({ startY: y, head: [['العدد', 'المعلم', 'العنصر']], body, styles: getTableStyles(), headStyles: getHeadStyles() });
+            
+            const body = Object.entries(data).sort(([,a], [,b]) => (b as any).percentage - (a as any).percentage).map(([teacher, stats]) => {
+                const s = stats as any;
+                return [`%${s.percentage.toFixed(0)}`, `${s.count} / ${s.target}`, teacher];
+            });
+
+            doc.autoTable({ startY: y, head: [['النسبة', 'المحقق / الهدف', 'المعلم']], body, styles: getTableStyles(), headStyles: getHeadStyles() });
             y = doc.lastAutoTable.finalY + 10;
         };
 
@@ -943,17 +964,13 @@ export const exportKeyMetrics = (format: 'txt' | 'pdf' | 'excel' | 'whatsapp', s
             [t('programsUsed'), stats.percentages.programs],
         ];
         const summaryWs = XLSX.utils.aoa_to_sheet(summaryData);
-        // FIX: 'ws' is not defined. Use 'summaryWs' instead.
         XLSX.utils.book_append_sheet(wb, summaryWs, t('summary'));
 
         const createSheet = (title: string, data: any) => {
-            // FIX: Explicitly type sheetData as any[][] to allow pushing numbers.
-            const sheetData: any[][] = [['العنصر', 'المعلم', 'العدد']];
-            Object.entries(data).forEach(([item, teachers]) => {
-                // FIX: Cast teachers to Record<string, number> to fix 'unknown' type for count.
-                Object.entries(teachers as Record<string, number>).forEach(([teacher, count]) => {
-                    sheetData.push([item, teacher, count]);
-                });
+            const sheetData: any[][] = [['المعلم', 'العدد المحقق', 'الهدف', 'النسبة']];
+            Object.entries(data).sort(([,a], [,b]) => (b as any).percentage - (a as any).percentage).forEach(([teacher, stats]) => {
+                const s = stats as any;
+                sheetData.push([teacher, s.count, s.target, `${s.percentage.toFixed(0)}%`]);
             });
             const ws = XLSX.utils.aoa_to_sheet(sheetData);
             XLSX.utils.book_append_sheet(wb, ws, title.substring(0, 30));
@@ -971,18 +988,22 @@ export const exportKeyMetrics = (format: 'txt' | 'pdf' | 'excel' | 'whatsapp', s
 // --- 2. Evaluation Analysis ---
 const generateEvalAnalysisText = (analysis: any, t: (key: any) => string): string => {
     if (!analysis) return 'No data.';
-    let content = `${t('evaluationElementAnalysis')}\n`;
-    content += `${analysis.title}\n`;
+    let content = `${SEPARATOR}\n`;
+    content += `📊 *${t('evaluationElementAnalysis')}*\n`;
+    content += `📝 *${analysis.title}*\n`;
+    content += `${SEPARATOR}`;
 
     const generateLevelText = (levelTitle: string, criteria: any[]) => {
         if(criteria.length === 0) return;
-        content += `${SEPARATOR}${levelTitle}\n`;
+        content += `\n📌 *${levelTitle}*\n`;
         criteria.forEach(c => {
-            content += `  - ${c.label} (${t('overallAverage')}: ${c.overallAverage.toFixed(1)}%)\n`;
+            content += `\n🔸 *${c.label}* (${t('overallAverage')}: ${c.overallAverage.toFixed(1)}%)\n`;
             c.teacherAvgs.forEach((ta: any) => {
-                content += `    - ${ta.name} (${ta.avg.toFixed(1)}%)\n`;
+                const icon = ta.avg >= 90 ? '🌟' : ta.avg >= 75 ? '✅' : ta.avg >= 50 ? '⚠️' : '❌';
+                content += `   🔹 ${ta.name}: ${icon} ${ta.avg.toFixed(1)}%\n`;
             });
         });
+        content += `\n----------------\n`;
     };
 
     generateLevelText(t('performanceLevelExcellent'), analysis.excellent);
@@ -1000,7 +1021,7 @@ export const exportEvaluationAnalysis = (format: 'txt' | 'pdf' | 'excel' | 'what
     if (format === 'txt') {
         openInNewWindow(textContent, analysis.title);
     } else if (format === 'whatsapp') {
-         window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(textContent.replace(/\n/g, '%0A'))}`, '_blank');
+         window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(textContent)}`, '_blank');
     } else if (format === 'pdf') {
         const doc = setupPdfDoc();
         let y = 20;
@@ -1054,7 +1075,9 @@ export const exportEvaluationAnalysis = (format: 'txt' | 'pdf' | 'excel' | 'what
 // --- 3. Supervisory Reports Summaries ---
 
 const generateSupervisoryReportText = (title: string, data: any[], t: (key: any) => string): string => {
-    let content = `${title}\n${SEPARATOR}`;
+    let content = `${SEPARATOR}\n`;
+    content += `📊 *${title}*\n`;
+    content += `${SEPARATOR}`;
     content += data.join('\n');
     return content;
 };
@@ -1067,7 +1090,7 @@ export const exportSupervisorySummary = (args: { format: 'txt' | 'pdf' | 'excel'
     if (format === 'txt') {
         openInNewWindow(textContent, title);
     } else if (format === 'whatsapp') {
-        window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(textContent.replace(/\n/g, '%0A'))}`, '_blank');
+        window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(textContent)}`, '_blank');
     } else if (format === 'pdf') {
         const doc = setupPdfDoc();
         let y = 20;
@@ -1349,7 +1372,6 @@ export const exportSupervisoryPlan = (
         const ws = XLSX.utils.aoa_to_sheet(data);
         
         // Calculate where the main plan starts for merging logic
-        // Title(2) + Spacer(1) + OffPlan(header+rows+spacer) + Strength...
         // This is complex to calculate dynamically for merging. 
         // Simple approach: Find the row index where "خامساً..." is located.
         const mainPlanStartRow = data.findIndex(row => row[0] === "خامساً: خطة الإشراف ومؤشرات الأداء");

@@ -98,7 +98,8 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = (props) => {
 // --- Key Metrics Tab ---
 const KeyMetricsView: React.FC<{ reports: Report[], teachers: Teacher[] }> = ({ reports, teachers }) => {
     const { t } = useLanguage();
-    const [targets, setTargets] = useState({ strategies: '10', tools: '10', sources: '5', programs: '2' });
+    // Default targets logic: e.g., 5 distinct strategies per teacher in the selected period
+    const [targets, setTargets] = useState({ strategies: '5', tools: '5', sources: '3', programs: '2' });
     const [dateRange, setDateRange] = useState({ start: '', end: '' });
     const [calculatedStats, setCalculatedStats] = useState<any>(null);
 
@@ -113,46 +114,72 @@ const KeyMetricsView: React.FC<{ reports: Report[], teachers: Teacher[] }> = ({ 
 
         const startDate = new Date(start);
         const endDate = new Date(end);
-        const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        const weeks = Math.max(1, diffDays / 7);
 
         const filteredReports = reports.filter(r => {
             const reportDate = new Date(r.date);
             return reportDate >= startDate && reportDate <= endDate;
         });
 
-        const usageCounts = { strategies: 0, tools: 0, sources: 0, programs: 0 };
-        const usageDetails: { [key: string]: { [item: string]: { [teacherName: string]: number } } } = {
-            strategies: {}, tools: {}, sources: {}, programs: {}
-        };
-        const itemTypes: (keyof typeof usageCounts)[] = ['strategies', 'tools', 'sources', 'programs'];
+        // Initialize Data Structure
+        // Type: { [teacherId]: { uniqueStrategies: Set<string>, ... } }
+        const teacherUsage: { [id: string]: { 
+            strategies: Set<string>, tools: Set<string>, sources: Set<string>, programs: Set<string> 
+        }} = {};
+
+        // Process Reports
+        const itemTypes: (keyof typeof targets)[] = ['strategies', 'tools', 'sources', 'programs'];
 
         filteredReports.forEach(report => {
-            const teacherName = teacherMap.get(report.teacherId) || 'Unknown';
+            const teacherId = report.teacherId;
+            if (!teacherUsage[teacherId]) {
+                teacherUsage[teacherId] = { strategies: new Set(), tools: new Set(), sources: new Set(), programs: new Set() };
+            }
+
             itemTypes.forEach(type => {
                 const itemsStr = (report as GeneralEvaluationReport | ClassSessionEvaluationReport)[type];
                 if (itemsStr) {
                     const items = itemsStr.split(/[,،]\s*/).filter(Boolean);
-                    usageCounts[type] += items.length;
-                    items.forEach(item => {
-                        if (!usageDetails[type][item]) usageDetails[type][item] = {};
-                        if (!usageDetails[type][item][teacherName]) usageDetails[type][item][teacherName] = 0;
-                        usageDetails[type][item][teacherName]++;
-                    });
+                    items.forEach(item => teacherUsage[teacherId][type].add(item.trim()));
                 }
             });
         });
+
+        // Calculate Stats
+        const activeTeacherIds = Object.keys(teacherUsage);
+        const activeTeachersCount = activeTeacherIds.length;
         
-        setCalculatedStats({
-            percentages: {
-                strategies: (usageCounts.strategies / (parseInt(targets.strategies) * weeks)) * 100,
-                tools: (usageCounts.tools / (parseInt(targets.tools) * weeks)) * 100,
-                sources: (usageCounts.sources / (parseInt(targets.sources) * weeks)) * 100,
-                programs: (usageCounts.programs / (parseInt(targets.programs) * weeks)) * 100,
-            },
-            details: usageDetails,
-        });
+        const finalStats = {
+            percentages: { strategies: 0, tools: 0, sources: 0, programs: 0 },
+            details: { strategies: {}, tools: {}, sources: {}, programs: {} } as any
+        };
+
+        if (activeTeachersCount > 0) {
+            itemTypes.forEach(type => {
+                let totalPercentage = 0;
+                const targetValue = parseInt(targets[type]) || 1;
+                const typeDetails: any = {};
+
+                activeTeacherIds.forEach(tid => {
+                    const uniqueCount = teacherUsage[tid][type].size;
+                    const teacherName = teacherMap.get(tid) || 'Unknown';
+                    // Calculate percentage capped at 100%
+                    const percent = Math.min((uniqueCount / targetValue) * 100, 100);
+                    totalPercentage += percent;
+
+                    typeDetails[teacherName] = {
+                        count: uniqueCount,
+                        target: targetValue,
+                        percentage: percent,
+                        items: Array.from(teacherUsage[tid][type]) // Optional: keep list of items for detailed tooltip if needed
+                    };
+                });
+
+                finalStats.percentages[type] = totalPercentage / activeTeachersCount;
+                finalStats.details[type] = typeDetails;
+            });
+        }
+
+        setCalculatedStats(finalStats);
 
     }, [dateRange, reports, targets, teacherMap, t]);
 
@@ -170,6 +197,7 @@ const KeyMetricsView: React.FC<{ reports: Report[], teachers: Teacher[] }> = ({ 
         <div className="space-y-6">
             <div className="p-4 border rounded-lg bg-gray-50 space-y-4">
                 <h3 className="text-xl font-semibold text-center">{t('usageStatistics')}</h3>
+                <p className="text-sm text-center text-gray-500">حدد الهدف المطلوب (عدد العناصر المختلفة) لكل معلم في الفترة المحددة</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div><label className="text-sm font-medium">{t('requiredStrategies')}</label><input type="number" name="strategies" value={targets.strategies} onChange={handleTargetChange} className="w-full p-2 border rounded" /></div>
                     <div><label className="text-sm font-medium">{t('requiredTools')}</label><input type="number" name="tools" value={targets.tools} onChange={handleTargetChange} className="w-full p-2 border rounded" /></div>
@@ -213,20 +241,25 @@ const KeyMetricsView: React.FC<{ reports: Report[], teachers: Teacher[] }> = ({ 
     );
 };
 
-const UsageDetailsTable: React.FC<{data: {[item: string]: {[teacher: string]: number}}}> = ({data}) => {
+const UsageDetailsTable: React.FC<{data: {[teacher: string]: { count: number, target: number, percentage: number }}}> = ({data}) => {
     if(Object.keys(data).length === 0) return <p>لا توجد بيانات.</p>;
     return (
         <div className="space-y-3">
-            {Object.entries(data).map(([item, teachers]) => (
-                <div key={item}>
-                    <p className="font-bold text-primary">{item}</p>
-                    <ul className="list-disc ps-6">
-                        {Object.entries(teachers).sort(([,a],[,b]) => b - a).map(([teacher, count]) => (
-                            <li key={teacher}>{teacher} ({count})</li>
-                        ))}
-                    </ul>
-                </div>
-            ))}
+            <ul className="space-y-2">
+                {Object.entries(data)
+                    .sort(([,a], [,b]) => (b as any).percentage - (a as any).percentage)
+                    .map(([teacher, stats]) => {
+                        const s = stats as { count: number, target: number, percentage: number };
+                        return (
+                            <li key={teacher} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                                <span className="font-semibold">{teacher}</span>
+                                <span className={`font-bold ${s.percentage >= 100 ? 'text-green-600' : s.percentage >= 50 ? 'text-yellow-600' : 'text-red-600'}`}>
+                                    {s.count} / {s.target} ({s.percentage.toFixed(0)}%)
+                                </span>
+                            </li>
+                        );
+                    })}
+            </ul>
         </div>
     )
 };
@@ -366,14 +399,14 @@ const SupervisoryReportsView: React.FC<PerformanceDashboardProps> = (props) => {
         const teacherMap = new Map(props.teachers.map(t => [t.id, t.name]));
 
         const data = [
-            `${t('aheadOfSyllabus')} (${ahead.length})`,
-            ...ahead.map(r => `  - ${teacherMap.get(r.teacherId)} (${r.subject} - ${r.grades})`),
+            `📈 ${t('aheadOfSyllabus')} (${ahead.length})`,
+            ...ahead.map(r => `  🔹 ${teacherMap.get(r.teacherId)} | ${r.subject} - ${r.grades}`),
             '',
-            `${t('onTrackWithSyllabus')} (${onTrack.length})`,
-            ...onTrack.map(r => `  - ${teacherMap.get(r.teacherId)} (${r.subject} - ${r.grades})`),
+            `✅ ${t('onTrackWithSyllabus')} (${onTrack.length})`,
+            ...onTrack.map(r => `  🔹 ${teacherMap.get(r.teacherId)} | ${r.subject} - ${r.grades}`),
             '',
-            `${t('behindSyllabus')} (${behind.length})`,
-            ...behind.map(r => `  - ${teacherMap.get(r.teacherId)} (${r.subject} - ${r.grades})`),
+            `🐢 ${t('behindSyllabus')} (${behind.length})`,
+            ...behind.map(r => `  🔹 ${teacherMap.get(r.teacherId)} | ${r.subject} - ${r.grades}`),
         ];
         exportSupervisorySummaryUtil({ format, title: t('syllabusProgress'), data, t });
     };
@@ -389,15 +422,15 @@ const SupervisoryReportsView: React.FC<PerformanceDashboardProps> = (props) => {
             acc[visit.visitingTeacher] = (acc[visit.visitingTeacher] || 0) + 1;
             return acc;
         }, {} as Record<string, number>);
-        const details = Object.entries(visitsByTeacher).map(([teacher, count]) => `${teacher}: ${count}`);
+        const details = Object.entries(visitsByTeacher).map(([teacher, count]) => `🔹 ${teacher}: ${count}`);
         
         const data = [
-            `${t('totalVisits')}: ${total}`,
-            `تمت الزيارة: ${completed}`,
-            `قيد التنفيذ: ${inProgress}`,
-            `لم تتم: ${notCompleted}`,
+            `📌 ${t('totalVisits')}: ${total}`,
+            `✅ تمت الزيارة: ${completed}`,
+            `⏳ قيد التنفيذ: ${inProgress}`,
+            `❌ لم تتم: ${notCompleted}`,
             '',
-            t('visitsConductedBy') + ':', 
+            `📋 ${t('visitsConductedBy')}:`, 
             ...details
         ];
         exportSupervisorySummaryUtil({ format, title: t('peerVisitsReport'), data, t });
@@ -549,10 +582,12 @@ const DeliveryRecordsReport: React.FC<{ deliverySheets: DeliverySheet[], teacher
                 if (total === 0) return null;
 
                 const exportData = [
-                    `${t('delivered')}: ${delivered.length} / ${total} (${(delivered.length / total * 100).toFixed(1)}%)`,
-                    `(${delivered.map(r => r.teacherName).join(', ')})`,
-                    `${t('notDelivered')}: ${notDelivered.length} / ${total} (${(notDelivered.length / total * 100).toFixed(1)}%)`,
-                    `(${notDelivered.map(r => r.teacherName).join(', ')})`
+                    `📊 *${sheet.name}*`,
+                    `📦 ${t('delivered')}: ${delivered.length} / ${total} (${(delivered.length / total * 100).toFixed(1)}%)`,
+                    ...delivered.map(r => `  🔹 ${r.teacherName}`),
+                    '',
+                    `⚠️ ${t('notDelivered')}: ${notDelivered.length} / ${total} (${(notDelivered.length / total * 100).toFixed(1)}%)`,
+                    ...notDelivered.map(r => `  🔸 ${r.teacherName}`)
                 ];
 
                 return (
@@ -610,14 +645,14 @@ const SyllabusCoverageProgressReport: React.FC<{ syllabusCoverageReports: Syllab
     const handleExport = (format: 'txt' | 'pdf' | 'excel' | 'whatsapp') => {
         const title = t('syllabusCoverageReport');
         const data = [
-            `${t('aheadOfSyllabus')} (${filteredAndGrouped.ahead.length})`,
-            ...filteredAndGrouped.ahead.map(r => `  - ${r.subject} - ${r.grade} (${teacherMap.get(r.teacherId)})`),
+            `📈 ${t('aheadOfSyllabus')} (${filteredAndGrouped.ahead.length})`,
+            ...filteredAndGrouped.ahead.map(r => `  🔹 ${r.subject} - ${r.grade} (${teacherMap.get(r.teacherId)})`),
             '',
-            `${t('onTrackWithSyllabus')} (${filteredAndGrouped.onTrack.length})`,
-            ...filteredAndGrouped.onTrack.map(r => `  - ${r.subject} - ${r.grade} (${teacherMap.get(r.teacherId)})`),
+            `✅ ${t('onTrackWithSyllabus')} (${filteredAndGrouped.onTrack.length})`,
+            ...filteredAndGrouped.onTrack.map(r => `  🔹 ${r.subject} - ${r.grade} (${teacherMap.get(r.teacherId)})`),
             '',
-            `${t('behindSyllabus')} (${filteredAndGrouped.behind.length})`,
-            ...filteredAndGrouped.behind.map(r => `  - ${r.subject} - ${r.grade} (${teacherMap.get(r.teacherId)})`)
+            `🐢 ${t('behindSyllabus')} (${filteredAndGrouped.behind.length})`,
+            ...filteredAndGrouped.behind.map(r => `  🔹 ${r.subject} - ${r.grade} (${teacherMap.get(r.teacherId)})`)
         ];
         exportSupervisorySummaryUtil({ format, title, data, t });
     };
