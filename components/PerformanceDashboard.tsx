@@ -4,6 +4,7 @@ import { Report, Teacher, GeneralEvaluationReport, ClassSessionEvaluationReport,
 import { useLanguage } from '../i18n/LanguageContext';
 import { GENERAL_EVALUATION_CRITERIA_TEMPLATE, CLASS_SESSION_BRIEF_TEMPLATE, CLASS_SESSION_EXTENDED_TEMPLATE, CLASS_SESSION_SUBJECT_SPECIFIC_TEMPLATE, GRADES, SUBJECTS } from '../constants';
 import { exportKeyMetrics, exportEvaluationAnalysis, exportSupervisorySummary as exportSupervisorySummaryUtil, exportMeetingSummary as exportMeetingSummaryUtil } from '../lib/exportUtils';
+import { calculateReportPercentage } from '../lib/exportUtils';
 
 interface PerformanceDashboardProps {
   reports: Report[];
@@ -43,12 +44,12 @@ const ProgressBar: React.FC<{ label: string; percentage: number }> = ({ label, p
     };
     const color = getProgressBarColor(percentage);
     return (
-        <div className="text-center">
-            <p className="font-semibold text-gray-700">{label}</p>
-            <div className="w-full bg-gray-200 rounded-full h-4 my-2">
-                <div className={`${color} h-4 rounded-full`} style={{ width: `${Math.min(percentage, 100)}%` }}></div>
+        <div className="text-center w-full">
+            <p className="font-semibold text-gray-700 text-sm mb-1">{label}</p>
+            <div className="w-full bg-gray-200 rounded-full h-3 mb-1">
+                <div className={`${color} h-3 rounded-full transition-all duration-500`} style={{ width: `${Math.min(percentage, 100)}%` }}></div>
             </div>
-            <p className="font-bold text-lg">{percentage.toFixed(1)}%</p>
+            <p className="font-bold text-sm">{percentage.toFixed(1)}%</p>
         </div>
     );
 };
@@ -96,25 +97,158 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = (props) => {
 };
 
 
-// --- Key Metrics Tab ---
+// --- Key Metrics Tab (Fully Implemented) ---
 const KeyMetricsView: React.FC<{ reports: Report[], teachers: Teacher[] }> = ({ reports, teachers }) => {
-    // ... (No changes to KeyMetricsView)
-    // For brevity, assuming existing code is here. 
-    // If needed, I can include full content, but the main request is about Syllabus report.
-    // Keeping placeholder to focus on requested changes.
     const { t } = useLanguage();
+
+    const stats = useMemo(() => {
+        const totalReports = reports.length;
+        const totalTeachers = teachers.length;
+        
+        let totalScoreSum = 0;
+        const typeCounts = { general: 0, class_session: 0, special: 0 };
+        
+        reports.forEach(r => {
+            totalScoreSum += calculateReportPercentage(r);
+            if (r.evaluationType === 'general') typeCounts.general++;
+            else if (r.evaluationType === 'class_session') typeCounts.class_session++;
+            else if (r.evaluationType === 'special') typeCounts.special++;
+        });
+
+        const overallAverage = totalReports > 0 ? totalScoreSum / totalReports : 0;
+
+        return {
+            totalTeachers,
+            totalReports,
+            overallAverage,
+            typeCounts
+        };
+    }, [reports, teachers]);
+
+    const handleExport = (format: 'txt' | 'pdf' | 'excel' | 'whatsapp') => {
+        exportKeyMetrics(format, stats, t);
+    };
+
     return (
-        <div className="text-center p-4">
-            <p>يرجى مراجعة علامة التبويب "التقارير الإشرافية" لمشاهدة التعديلات الجديدة.</p>
+        <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-blue-50 p-6 rounded-lg text-center border border-blue-200 shadow-sm">
+                    <h3 className="text-gray-600 font-semibold mb-2">{t('totalTeachers')}</h3>
+                    <p className="text-4xl font-bold text-blue-600">{stats.totalTeachers}</p>
+                </div>
+                <div className="bg-green-50 p-6 rounded-lg text-center border border-green-200 shadow-sm">
+                    <h3 className="text-gray-600 font-semibold mb-2">{t('totalReports')}</h3>
+                    <p className="text-4xl font-bold text-green-600">{stats.totalReports}</p>
+                </div>
+                <div className="bg-purple-50 p-6 rounded-lg text-center border border-purple-200 shadow-sm">
+                    <h3 className="text-gray-600 font-semibold mb-2">{t('overallAveragePerformance')}</h3>
+                    <p className="text-4xl font-bold text-purple-600">{stats.overallAverage.toFixed(1)}%</p>
+                </div>
+            </div>
+
+            <div className="p-6 border rounded-lg bg-gray-50">
+                <h4 className="text-xl font-bold mb-4 text-center text-primary">توزيع التقارير حسب النوع</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div className="flex flex-col items-center">
+                        <span className="font-bold mb-2">{t('generalEvaluation')}</span>
+                        <div className="relative w-32 h-32">
+                            <svg className="w-full h-full" viewBox="0 0 36 36">
+                                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#e5e7eb" strokeWidth="3" />
+                                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#3b82f6" strokeWidth="3" strokeDasharray={`${stats.totalReports ? (stats.typeCounts.general / stats.totalReports) * 100 : 0}, 100`} />
+                            </svg>
+                            <div className="absolute inset-0 flex items-center justify-center font-bold text-lg text-blue-600">{stats.typeCounts.general}</div>
+                        </div>
+                    </div>
+                    <div className="flex flex-col items-center">
+                        <span className="font-bold mb-2">{t('classSessionEvaluation')}</span>
+                        <div className="relative w-32 h-32">
+                            <svg className="w-full h-full" viewBox="0 0 36 36">
+                                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#e5e7eb" strokeWidth="3" />
+                                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#10b981" strokeWidth="3" strokeDasharray={`${stats.totalReports ? (stats.typeCounts.class_session / stats.totalReports) * 100 : 0}, 100`} />
+                            </svg>
+                            <div className="absolute inset-0 flex items-center justify-center font-bold text-lg text-green-600">{stats.typeCounts.class_session}</div>
+                        </div>
+                    </div>
+                    <div className="flex flex-col items-center">
+                        <span className="font-bold mb-2">{t('specialReports')}</span>
+                        <div className="relative w-32 h-32">
+                            <svg className="w-full h-full" viewBox="0 0 36 36">
+                                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#e5e7eb" strokeWidth="3" />
+                                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#f59e0b" strokeWidth="3" strokeDasharray={`${stats.totalReports ? (stats.typeCounts.special / stats.totalReports) * 100 : 0}, 100`} />
+                            </svg>
+                            <div className="absolute inset-0 flex items-center justify-center font-bold text-lg text-yellow-600">{stats.typeCounts.special}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <ExportButtons onExport={handleExport} />
         </div>
     )
 };
 
-// --- Evaluation Analysis Tab ---
+// --- Evaluation Analysis Tab (Fully Implemented) ---
 const EvaluationAnalysisView: React.FC<{ reports: Report[], teachers: Teacher[] }> = ({ reports, teachers }) => {
-    // ... (No changes to EvaluationAnalysisView)
     const { t } = useLanguage();
-    return <div className="text-center p-4">يرجى مراجعة علامة التبويب "التقارير الإشرافية" لمشاهدة التعديلات الجديدة.</div>
+
+    const analysis = useMemo(() => {
+        const criteriaMap: { [label: string]: { sum: number; count: number } } = {};
+
+        reports.forEach(report => {
+            let criteria: any[] = [];
+            if (report.evaluationType === 'general' || report.evaluationType === 'special') {
+                criteria = (report as GeneralEvaluationReport | SpecialReport).criteria;
+            } else if (report.evaluationType === 'class_session') {
+                criteria = (report as ClassSessionEvaluationReport).criterionGroups.flatMap(g => g.criteria);
+            }
+
+            criteria.forEach(c => {
+                if (!criteriaMap[c.label]) {
+                    criteriaMap[c.label] = { sum: 0, count: 0 };
+                }
+                criteriaMap[c.label].sum += c.score;
+                criteriaMap[c.label].count += 1;
+            });
+        });
+
+        // Convert to array and calculate averages (0-4 scale converted to percentage)
+        const result = Object.entries(criteriaMap).map(([label, data]) => ({
+            label,
+            percentage: (data.sum / (data.count * 4)) * 100,
+            count: data.count
+        }));
+
+        // Sort by lowest percentage first (to show areas for improvement)
+        return result.sort((a, b) => a.percentage - b.percentage);
+    }, [reports]);
+
+    const handleExport = (format: 'txt' | 'pdf' | 'excel' | 'whatsapp') => {
+        exportEvaluationAnalysis(format, analysis, t);
+    };
+
+    return (
+        <div className="space-y-6">
+            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
+                <p>ملاحظة: يتم ترتيب المعايير من الأقل أداءً إلى الأعلى، لتسليط الضوء على جوانب التطوير المطلوبة.</p>
+            </div>
+
+            <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
+                {analysis.length > 0 ? analysis.map((item, index) => (
+                    <div key={index} className="flex items-center gap-4 p-2 bg-white border-b hover:bg-gray-50">
+                        <div className="w-1/3 md:w-1/4 text-sm font-semibold text-gray-700">{item.label}</div>
+                        <div className="flex-grow">
+                            <ProgressBar label="" percentage={item.percentage} />
+                        </div>
+                        <div className="w-16 text-center text-xs text-gray-500">
+                            ({item.count} تكرار)
+                        </div>
+                    </div>
+                )) : <p className="text-center py-8 text-gray-500">لا توجد بيانات كافية للتحليل.</p>}
+            </div>
+
+            {analysis.length > 0 && <ExportButtons onExport={handleExport} />}
+        </div>
+    );
 };
 
 
@@ -295,29 +429,33 @@ const SyllabusDashboardReport: React.FC<{ reports: SyllabusCoverageReport[], tea
             
             // Detailed Status
             if (teacher.statusBehind > 0) {
-                dataLines.push(`🔴 *الحالة:* متأخر عن الخطة`);
+                dataLines.push(`🔴 *الحالة العامة:* متأخر عن الخطة`);
             } else if (teacher.statusAhead > 0) {
-                dataLines.push(`🔵 *الحالة:* متقدم عن الخطة`);
+                dataLines.push(`🔵 *الحالة العامة:* متقدم عن الخطة`);
             } else {
-                dataLines.push(`🟢 *الحالة:* مطابق للخطة`);
+                dataLines.push(`🟢 *الحالة العامة:* مطابق للخطة`);
             }
             
             // Branch Details for Whatsapp
             if(teacher.branchDetails.length > 0) {
-                 dataLines.push(`   ${teacher.branchDetails.join('\n   ')}`);
+                 dataLines.push(`   📌 *تفاصيل الفروع:*`);
+                 teacher.branchDetails.forEach((d: string) => dataLines.push(`   ${d}`));
             }
 
-            dataLines.push(`   🤝 إجمالي اللقاءات التطويرية: ${teacher.meetings}`);
-            dataLines.push(`   📚 متوسط تصحيح الدفاتر: ${teacher.notebookAvg}%`);
-            dataLines.push(`   📝 متوسط دفتر التحضير: ${teacher.prepAvg}%`);
+            dataLines.push(`📊 *الإحصائيات:*`);
+            dataLines.push(`   🤝 اللقاءات: ${teacher.meetings}`);
+            dataLines.push(`   📚 تصحيح الدفاتر: ${teacher.notebookAvg}%`);
+            dataLines.push(`   📝 دفتر التحضير: ${teacher.prepAvg}%`);
             dataLines.push(`   📖 مسرد الأسئلة: ${teacher.glossaryAvg}%`);
             
-            if (teacher.strategiesList) dataLines.push(`   💡 الاستراتيجيات: ${teacher.strategiesList}`);
-            if (teacher.toolsList) dataLines.push(`   🛠️ الوسائل: ${teacher.toolsList}`);
-            if (teacher.programsList) dataLines.push(`   💻 البرامج: ${teacher.programsList}`);
-            if (teacher.tasksList) dataLines.push(`   ✅ التكاليف: ${teacher.tasksList}`);
-            if (teacher.testsList) dataLines.push(`   📄 الاختبارات: ${teacher.testsList}`);
-            dataLines.push('-------------------------');
+            if (teacher.strategiesList) dataLines.push(`💡 *الاستراتيجيات:* ${teacher.strategiesList}`);
+            if (teacher.toolsList) dataLines.push(`🛠️ *الوسائل:* ${teacher.toolsList}`);
+            if (teacher.sourcesList) dataLines.push(`📚 *المصادر:* ${teacher.sourcesList}`);
+            if (teacher.programsList) dataLines.push(`💻 *البرامج:* ${teacher.programsList}`);
+            if (teacher.tasksList) dataLines.push(`✅ *التكاليف:* ${teacher.tasksList}`);
+            if (teacher.testsList) dataLines.push(`📄 *الاختبارات:* ${teacher.testsList}`);
+            
+            dataLines.push('━━━━━━━━━━━━━━━━');
         });
 
         exportSupervisorySummaryUtil({ format, title, data: dataLines, t });

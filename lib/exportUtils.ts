@@ -649,14 +649,41 @@ export const exportSyllabusCoverage = (
 
 // ... remaining exports ...
 export const exportKeyMetrics = (format: 'txt' | 'pdf' | 'excel' | 'whatsapp', stats: any, t: (key: any) => string) => {
-    // ... existing implementation
-    const filename = `key_metrics_${new Date().toISOString().split('T')[0]}`;
-    // ... rest of code
-    const textContent = ""; // Placeholder for missing generateKeyMetricsText in this context block
-    if (format === 'txt') {
-        /* ... */
-    } 
-    // Ensure all original code is preserved in real file
+    const title = t('keyMetrics');
+    const data = [
+        `📊 ${title}`,
+        `${t('totalTeachers')}: ${stats.totalTeachers}`,
+        `${t('totalReports')}: ${stats.totalReports}`,
+        `${t('overallAveragePerformance')}: ${stats.overallAverage.toFixed(2)}%`,
+        `--- تفصيل التقارير ---`,
+        `${t('generalEvaluation')}: ${stats.typeCounts.general}`,
+        `${t('classSessionEvaluation')}: ${stats.typeCounts.class_session}`,
+        `${t('specialReports')}: ${stats.typeCounts.special}`,
+    ];
+
+    exportSupervisorySummary({format, title, data, t});
+};
+
+export const exportEvaluationAnalysis = (format: 'txt' | 'pdf' | 'excel' | 'whatsapp', analysis: any[], t: (key: any) => string) => {
+    const title = t('evaluationElementAnalysis');
+    
+    if (format === 'excel') {
+        const data = analysis.map(item => ({
+            'المعيار': item.label,
+            'نسبة الأداء': item.percentage.toFixed(2) + '%',
+            'عدد التكرار': item.count
+        }));
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Analysis");
+        XLSX.writeFile(wb, `evaluation_analysis_${new Date().toISOString().split('T')[0]}.xlsx`);
+        return;
+    }
+
+    const dataLines = analysis.map(item => 
+        `🔹 ${item.label}: ${item.percentage.toFixed(1)}% (${item.count})`
+    );
+    exportSupervisorySummary({format, title, data: [title, ...dataLines], t});
 };
 
 export const exportMeetingSummary = (args: any) => { /* ... */ };
@@ -665,5 +692,35 @@ export const exportSupervisoryPlan = (format: any, plan: any, headers: any, t: a
 export const exportMeeting = (args: any) => { /* ... */ };
 export const exportDeliveryRecords = (args: any) => { /* ... */ };
 export const exportSyllabusPlan = (format: any, plan: any, t: any) => { /* ... */ };
-export const exportEvaluationAnalysis = (format: any, analysis: any, t: any) => { /* ... */ };
-export const exportSupervisorySummary = (args: any) => { /* ... */ };
+// exportEvaluationAnalysis = (format: any, analysis: any, t: any) => { /* ... */ }; // Implemented above
+export const exportSupervisorySummary = ({format, title, data, t}: {format: 'txt' | 'pdf' | 'excel' | 'whatsapp', title: string, data: string[], t: any}) => {
+    const filename = `summary_${new Date().toISOString().split('T')[0]}`;
+    
+    if (format === 'txt') {
+        const content = data.join('\n').replace(/\*/g, '');
+        const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `${filename}.txt`;
+        link.click();
+    } else if (format === 'whatsapp') {
+        const content = data.join('\n');
+        window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(content)}`, '_blank');
+    } else if (format === 'pdf') {
+        const doc = setupPdfDoc();
+        let y = 20;
+        doc.setFont('Amiri', 'bold');
+        doc.text(title, 200, y, { align: 'right' }); y += 10;
+        doc.setFont('Amiri', 'normal');
+        doc.setFontSize(12);
+        
+        data.forEach((line: string) => {
+            if (y > 270) { doc.addPage(); y = 20; }
+            const cleanLine = line.replace(/\*/g, '');
+            doc.text(cleanLine, 200, y, { align: 'right' });
+            y += 7;
+        });
+        addBorderToPdf(doc);
+        doc.save(`${filename}.pdf`);
+    }
+};
