@@ -216,10 +216,23 @@ export interface SyllabusCoverageReport {
   grade: string;
   branches: SyllabusBranchProgress[];
   authorId?: string;
-  // --- New Fields ---
   teacherId: string;
   branch: 'main' | 'boys' | 'girls';
   date: string;
+  
+  // --- Enhanced Fields ---
+  meetingsAttended?: string; // Number of meetings
+  notebookCorrection?: string; // Percentage 1-100
+  preparationBook?: string; // Percentage 1-100
+  questionsGlossary?: string; // Percentage 1-100
+  
+  programsImplemented?: string; // Text
+  strategiesImplemented?: string; // Text
+  toolsUsed?: string; // Text
+  sourcesUsed?: string; // Text
+  tasksDone?: string; // التكاليف - Text
+  testsDelivered?: string; // Text
+  peerVisitsDone?: string; // Text
 }
 
 
