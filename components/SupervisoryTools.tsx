@@ -160,18 +160,23 @@ const MeetingMinutes: React.FC<{
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                      <div>
                         <label className="font-semibold">{t('attendees')}</label>
-                        <textarea value={selectedMeeting.attendees} onChange={e => handleUpdateMeeting('attendees', e.target.value)} placeholder="اسم، اسم، ..." className="w-full p-2 border rounded h-24" />
+                        <textarea 
+                            value={selectedMeeting.attendees} 
+                            onChange={e => handleUpdateMeeting('attendees', e.target.value)} 
+                            placeholder="اسم، اسم، ..." 
+                            className="w-full p-2 border rounded h-24" 
+                        />
                      </div>
                      <div className="p-4 border rounded-lg bg-white">
                          <h4 className="font-semibold text-center mb-2">{t('signature')}</h4>
                          <p className="text-xs text-center text-gray-500 mb-3">{t('signatureText')}</p>
-                         <div className="space-y-2">
-                            {selectedMeeting.attendees.split(/[,،]/).map(name => name.trim()).filter(Boolean).map(name => (
-                                <div key={name} className="flex justify-between items-center text-sm p-1 bg-gray-50 rounded">
-                                    <span>{name}</span>
+                         <div className="space-y-2 max-h-60 overflow-y-auto">
+                            {selectedMeeting.attendees.split(/[,،\n]/).map(name => name.trim()).filter(Boolean).map((name, idx) => (
+                                <div key={`${name}-${idx}`} className="flex justify-between items-center text-sm p-2 bg-gray-50 border-b last:border-0 hover:bg-gray-100">
+                                    <span className="font-medium">{name}</span>
                                     {selectedMeeting.signatures[name]
-                                        ? <span className="text-green-600 font-bold">{t('signed')} ({selectedMeeting.signatures[name]})</span>
-                                        : <button onClick={() => handleSign(name)} className="px-2 py-1 bg-green-500 text-white rounded text-xs">{t('sign')}</button>
+                                        ? <span className="text-green-600 font-bold bg-green-100 px-2 py-1 rounded border border-green-200">{t('signed')} ({selectedMeeting.signatures[name]})</span>
+                                        : <button onClick={() => handleSign(name)} className="px-3 py-1 bg-blue-600 text-white rounded-md text-xs hover:bg-blue-700 transition-colors shadow-sm">{t('sign')}</button>
                                     }
                                 </div>
                             ))}

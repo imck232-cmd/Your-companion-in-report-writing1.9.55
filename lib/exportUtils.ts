@@ -867,35 +867,20 @@ const generateKeyMetricsText = (stats: any, t: (key: any) => string): string => 
     content += `📚 *${t('sourcesUsed')}*: ${stats.percentages.sources.toFixed(1)}%\n`;
     content += `💻 *${t('programsUsed')}*: ${stats.percentages.programs.toFixed(1)}%\n`;
 
-    const generateDetails = (title: string, data: any) => {
-        content += `${SEPARATOR}\n`;
-        content += `📌 *${title}*\n`;
-        if (Object.keys(data).length === 0) {
-            content += `(${t('noDataForPeriod')})\n`;
-            return;
-        }
-        Object.entries(data).sort(([,a], [,b]) => (b as any).percentage - (a as any).percentage).forEach(([item, data]) => {
-            const itemData = data as any; // { count: number, target: number, percentage: number }
-            content += `\n🔸 *${item}*\n`;
-            // Iterate over teachers in a clean way if the structure supports it, otherwise adapt.
-            // Wait, the structure in calculatedStats.details[type] is { teacherName: { count, target, percentage } }.
-            // The argument `data` here IS that object.
-            // Let's refactor based on correct structure: details[type] -> { teacherName: { ... } }
-        });
-    };
-    
-    // Correct iteration based on structure: { teacherName: { count, target, percentage } }
-    const generateCategoryDetails = (categoryTitle: string, teacherData: any) => {
+    const generateCategoryDetails = (categoryTitle: string, itemData: any) => {
         content += `${SEPARATOR}\n`;
         content += `📌 *${categoryTitle}*\n`;
-        if (Object.keys(teacherData).length === 0) {
+        
+        if (Object.keys(itemData).length === 0) {
             content += `   (${t('noDataForPeriod')})\n`;
             return;
         }
-        Object.entries(teacherData).sort(([,a], [,b]) => (b as any).percentage - (a as any).percentage).forEach(([teacher, stats]) => {
-            const s = stats as any;
-            const icon = s.percentage >= 100 ? '✅' : s.percentage >= 50 ? '⚠️' : '❌';
-            content += `   🔹 ${teacher} | ${icon} ${s.percentage.toFixed(0)}% (${s.count}/${s.target})\n`;
+
+        Object.entries(itemData).forEach(([itemName, teachers]) => {
+            content += `\n🔸 *${itemName}*\n`;
+            Object.entries(teachers as {[name: string]: number}).forEach(([teacherName, count]) => {
+                content += `   🔹 ${teacherName}: ${count} مرة\n`;
+            });
         });
     };
 
@@ -938,13 +923,26 @@ export const exportKeyMetrics = (format: 'txt' | 'pdf' | 'excel' | 'whatsapp', s
             if(y > 250) { doc.addPage(); y = 20; }
             doc.text(title, 200, y, { align: 'right' }); y += 7;
             
-            const body = Object.entries(data).sort(([,a], [,b]) => (b as any).percentage - (a as any).percentage).map(([teacher, stats]) => {
-                const s = stats as any;
-                return [`%${s.percentage.toFixed(0)}`, `${s.count} / ${s.target}`, teacher];
+            const body: any[] = [];
+            Object.entries(data).forEach(([itemName, teachers]) => {
+                body.push([{content: itemName, colSpan: 2, styles: {fontStyle: 'bold', fillColor: [240, 240, 240]}}]);
+                Object.entries(teachers as any).forEach(([teacher, count]) => {
+                    body.push([count, teacher]);
+                });
             });
 
-            doc.autoTable({ startY: y, head: [['النسبة', 'المحقق / الهدف', 'المعلم']], body, styles: getTableStyles(), headStyles: getHeadStyles() });
-            y = doc.lastAutoTable.finalY + 10;
+            if (body.length > 0) {
+                doc.autoTable({ 
+                    startY: y, 
+                    head: [['العدد', 'المعلم / العنصر']], 
+                    body, 
+                    styles: getTableStyles(), 
+                    headStyles: getHeadStyles() 
+                });
+                y = doc.lastAutoTable.finalY + 10;
+            } else {
+                doc.text(`(${t('noDataForPeriod')})`, 200, y, { align: 'right', fontSize: 10 }); y += 10;
+            }
         };
 
         addDetailsToPdf(t('strategiesUsed'), stats.details.strategies);
@@ -967,10 +965,11 @@ export const exportKeyMetrics = (format: 'txt' | 'pdf' | 'excel' | 'whatsapp', s
         XLSX.utils.book_append_sheet(wb, summaryWs, t('summary'));
 
         const createSheet = (title: string, data: any) => {
-            const sheetData: any[][] = [['المعلم', 'العدد المحقق', 'الهدف', 'النسبة']];
-            Object.entries(data).sort(([,a], [,b]) => (b as any).percentage - (a as any).percentage).forEach(([teacher, stats]) => {
-                const s = stats as any;
-                sheetData.push([teacher, s.count, s.target, `${s.percentage.toFixed(0)}%`]);
+            const sheetData: any[][] = [['العنصر', 'المعلم', 'العدد']];
+            Object.entries(data).forEach(([itemName, teachers]) => {
+                Object.entries(teachers as any).forEach(([teacher, count]) => {
+                    sheetData.push([itemName, teacher, count]);
+                });
             });
             const ws = XLSX.utils.aoa_to_sheet(sheetData);
             XLSX.utils.book_append_sheet(wb, ws, title.substring(0, 30));

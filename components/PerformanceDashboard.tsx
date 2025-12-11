@@ -98,7 +98,6 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = (props) => {
 // --- Key Metrics Tab ---
 const KeyMetricsView: React.FC<{ reports: Report[], teachers: Teacher[] }> = ({ reports, teachers }) => {
     const { t } = useLanguage();
-    // Default targets logic: e.g., 5 distinct strategies per teacher in the selected period
     const [targets, setTargets] = useState({ strategies: '5', tools: '5', sources: '3', programs: '2' });
     const [dateRange, setDateRange] = useState({ start: '', end: '' });
     const [calculatedStats, setCalculatedStats] = useState<any>(null);
@@ -120,62 +119,61 @@ const KeyMetricsView: React.FC<{ reports: Report[], teachers: Teacher[] }> = ({ 
             return reportDate >= startDate && reportDate <= endDate;
         });
 
-        // Initialize Data Structure
-        // Type: { [teacherId]: { uniqueStrategies: Set<string>, ... } }
-        const teacherUsage: { [id: string]: { 
-            strategies: Set<string>, tools: Set<string>, sources: Set<string>, programs: Set<string> 
-        }} = {};
-
-        // Process Reports
-        const itemTypes: (keyof typeof targets)[] = ['strategies', 'tools', 'sources', 'programs'];
+        const itemTypes = ['strategies', 'tools', 'sources', 'programs'] as const;
+        
+        // Structure: { [type]: { [itemName]: { [teacherName]: count } } }
+        const itemBreakdown: any = { strategies: {}, tools: {}, sources: {}, programs: {} };
+        // To calculate percentages based on targets (Old Logic retained for percentage calculation)
+        const teacherUniqueCounts: { [id: string]: { [type: string]: Set<string> } } = {};
 
         filteredReports.forEach(report => {
             const teacherId = report.teacherId;
-            if (!teacherUsage[teacherId]) {
-                teacherUsage[teacherId] = { strategies: new Set(), tools: new Set(), sources: new Set(), programs: new Set() };
+            const teacherName = teacherMap.get(teacherId) || 'Unknown';
+
+            if (!teacherUniqueCounts[teacherId]) {
+                teacherUniqueCounts[teacherId] = { strategies: new Set(), tools: new Set(), sources: new Set(), programs: new Set() };
             }
 
             itemTypes.forEach(type => {
                 const itemsStr = (report as GeneralEvaluationReport | ClassSessionEvaluationReport)[type];
                 if (itemsStr) {
                     const items = itemsStr.split(/[,،]\s*/).filter(Boolean);
-                    items.forEach(item => teacherUsage[teacherId][type].add(item.trim()));
+                    items.forEach(item => {
+                        const trimmedItem = item.trim();
+                        // 1. For Percentage Calculation (Unique items per teacher)
+                        teacherUniqueCounts[teacherId][type].add(trimmedItem);
+
+                        // 2. For Detailed Breakdown (Item -> Teacher -> Count)
+                        if (!itemBreakdown[type][trimmedItem]) {
+                            itemBreakdown[type][trimmedItem] = {};
+                        }
+                        itemBreakdown[type][trimmedItem][teacherName] = (itemBreakdown[type][trimmedItem][teacherName] || 0) + 1;
+                    });
                 }
             });
         });
 
-        // Calculate Stats
-        const activeTeacherIds = Object.keys(teacherUsage);
+        // Calculate Percentages
+        const activeTeacherIds = Object.keys(teacherUniqueCounts);
         const activeTeachersCount = activeTeacherIds.length;
         
         const finalStats = {
             percentages: { strategies: 0, tools: 0, sources: 0, programs: 0 },
-            details: { strategies: {}, tools: {}, sources: {}, programs: {} } as any
+            details: itemBreakdown // Use the new structure for details
         };
 
         if (activeTeachersCount > 0) {
             itemTypes.forEach(type => {
                 let totalPercentage = 0;
                 const targetValue = parseInt(targets[type]) || 1;
-                const typeDetails: any = {};
 
                 activeTeacherIds.forEach(tid => {
-                    const uniqueCount = teacherUsage[tid][type].size;
-                    const teacherName = teacherMap.get(tid) || 'Unknown';
-                    // Calculate percentage capped at 100%
+                    const uniqueCount = teacherUniqueCounts[tid][type].size;
                     const percent = Math.min((uniqueCount / targetValue) * 100, 100);
                     totalPercentage += percent;
-
-                    typeDetails[teacherName] = {
-                        count: uniqueCount,
-                        target: targetValue,
-                        percentage: percent,
-                        items: Array.from(teacherUsage[tid][type]) // Optional: keep list of items for detailed tooltip if needed
-                    };
                 });
 
                 finalStats.percentages[type] = totalPercentage / activeTeachersCount;
-                finalStats.details[type] = typeDetails;
             });
         }
 
@@ -241,25 +239,23 @@ const KeyMetricsView: React.FC<{ reports: Report[], teachers: Teacher[] }> = ({ 
     );
 };
 
-const UsageDetailsTable: React.FC<{data: {[teacher: string]: { count: number, target: number, percentage: number }}}> = ({data}) => {
+// Updated component to show Item -> Teachers breakdown
+const UsageDetailsTable: React.FC<{data: {[itemName: string]: { [teacherName: string]: number } }}> = ({data}) => {
     if(Object.keys(data).length === 0) return <p>لا توجد بيانات.</p>;
     return (
-        <div className="space-y-3">
-            <ul className="space-y-2">
-                {Object.entries(data)
-                    .sort(([,a], [,b]) => (b as any).percentage - (a as any).percentage)
-                    .map(([teacher, stats]) => {
-                        const s = stats as { count: number, target: number, percentage: number };
-                        return (
-                            <li key={teacher} className="flex justify-between items-center p-2 bg-gray-50 rounded">
-                                <span className="font-semibold">{teacher}</span>
-                                <span className={`font-bold ${s.percentage >= 100 ? 'text-green-600' : s.percentage >= 50 ? 'text-yellow-600' : 'text-red-600'}`}>
-                                    {s.count} / {s.target} ({s.percentage.toFixed(0)}%)
-                                </span>
+        <div className="space-y-4">
+            {Object.entries(data).map(([itemName, teachers]) => (
+                <div key={itemName} className="border-b pb-2 last:border-0">
+                    <h5 className="font-bold text-primary mb-2">🔸 {itemName}</h5>
+                    <ul className="list-disc list-inside ps-4 space-y-1">
+                        {Object.entries(teachers).map(([teacherName, count]) => (
+                            <li key={teacherName} className="text-sm text-gray-700">
+                                <span className="font-semibold">{teacherName}</span>: {count} مرة
                             </li>
-                        );
-                    })}
-            </ul>
+                        ))}
+                    </ul>
+                </div>
+            ))}
         </div>
     )
 };
