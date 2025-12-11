@@ -476,9 +476,9 @@ export const exportSyllabusCoverage = (
         if (report.branches.length > 0) {
             report.branches.forEach(b => {
                 let statusEmoji = '⚪️';
-                if (b.status === 'ahead') statusEmoji = '🟢';
-                if (b.status === 'on_track') statusEmoji = '🔵';
-                if (b.status === 'behind') statusEmoji = '🔴';
+                if (b.status === 'ahead') statusEmoji = '📈';
+                if (b.status === 'on_track') statusEmoji = '✅';
+                if (b.status === 'behind') statusEmoji = '🐢';
 
                 let statusText = translateStatus(b.status);
                 if ((b.status === 'ahead' || b.status === 'behind') && b.lessonDifference) {
@@ -492,10 +492,10 @@ export const exportSyllabusCoverage = (
         }
 
         content += `\n*--- 📊 الإحصائيات الكمية ---*\n`;
-        content += textFormatter(t('meetingsAttended'), report.meetingsAttended);
-        content += textFormatter(t('notebookCorrection'), report.notebookCorrection ? report.notebookCorrection + '%' : '');
-        content += textFormatter(t('preparationBook'), report.preparationBook ? report.preparationBook + '%' : '');
-        content += textFormatter(t('questionsGlossary'), report.questionsGlossary ? report.questionsGlossary + '%' : '');
+        content += `🤝 *${t('meetingsAttended')}:* ${report.meetingsAttended || '0'}\n`;
+        content += `📚 *${t('notebookCorrection')}:* ${report.notebookCorrection ? report.notebookCorrection + '%' : '0%'}\n`;
+        content += `📝 *${t('preparationBook')}:* ${report.preparationBook ? report.preparationBook + '%' : '0%'}\n`;
+        content += `📖 *${t('questionsGlossary')}:* ${report.questionsGlossary ? report.questionsGlossary + '%' : '0%'}\n`;
 
         content += `\n*--- 📝 البيانات النوعية ---*\n`;
         const qualitativeFields = [
@@ -510,8 +510,12 @@ export const exportSyllabusCoverage = (
 
         qualitativeFields.forEach(field => {
             const val = (report as any)[field.key];
-            if (val) {
-                content += `\n*${field.icon} ${field.label}:*\n${val}\n`;
+            if (val && val.trim()) {
+                // Ensure list items are formatted with bullets if they look like a list
+                const formattedVal = val.split('\n').map((line: string) => line.trim().startsWith('-') ? line : `- ${line}`).join('\n');
+                content += `\n*${field.icon} ${field.label}:*\n${formattedVal}\n`;
+            } else {
+                 content += `\n*${field.icon} ${field.label}:* لا يوجد\n`;
             }
         });
         
@@ -612,13 +616,10 @@ export const exportSyllabusCoverage = (
         data.push([]); 
 
         if (report.branches.length > 0) {
-            data.push(['الفرع', 'حالة السير', 'آخر درس']);
+            data.push(['الفرع', 'حالة السير', 'آخر درس', 'عدد الدروس']);
             report.branches.forEach(b => {
                  let statusText = translateStatus(b.status);
-                 if ((b.status === 'ahead' || b.status === 'behind') && b.lessonDifference) {
-                     statusText += ` (${b.lessonDifference} دروس)`;
-                 }
-                 data.push([b.branchName, statusText, b.lastLesson]);
+                 data.push([b.branchName, statusText, b.lastLesson, b.lessonDifference || '']);
             });
             data.push([]); 
         }
