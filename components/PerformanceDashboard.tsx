@@ -200,10 +200,59 @@ const KeyMetricsView: React.FC<{ reports: Report[], teachers: Teacher[] }> = ({ 
     }, [reports, teachers, dateRange, teacherMap]);
 
     const handleExport = (format: 'txt' | 'pdf' | 'excel' | 'whatsapp') => {
-        exportKeyMetrics(format, basicStats, t);
+        if (format === 'whatsapp') {
+            // Build a comprehensive message for WhatsApp
+            let msg = `*📊 ${t('keyMetrics')}*\n\n`;
+            msg += `👥 ${t('totalTeachers')}: ${basicStats.totalTeachers}\n`;
+            msg += `📝 ${t('totalReports')}: ${basicStats.totalReports}\n`;
+            msg += `📈 ${t('overallAveragePerformance')}: ${basicStats.overallAverage.toFixed(1)}%\n`;
+            
+            // Goals
+            msg += `\n*🎯 تحليل الأهداف:*\n`;
+            const goalKeys = [
+                { k: 'strategies', l: 'الاستراتيجيات' }, 
+                { k: 'tools', l: 'الوسائل' }, 
+                { k: 'sources', l: 'المصادر' }, 
+                { k: 'programs', l: 'البرامج' }
+            ];
+            
+            goalKeys.forEach(({k, l}) => {
+                const count = detailedStats.usageCounts[k as keyof typeof detailedStats.usageCounts];
+                const goal = goals[k as keyof typeof goals];
+                const pct = goal > 0 ? (count / goal) * 100 : 0;
+                msg += `🔹 *${l}:* ${count} / ${goal} (${pct.toFixed(1)}%)\n`;
+            });
+
+            // Detailed Breakdown
+            const generateDetailSection = (title: string, dataMap: Record<string, Record<string, number>>) => {
+                let sectionMsg = `\n*📌 ${title}:*\n`;
+                const items = Object.entries(dataMap);
+                if (items.length === 0) return sectionMsg + "   (لا توجد بيانات)\n";
+                
+                items.forEach(([itemName, teacherCounts]) => {
+                    sectionMsg += `🔸 *${itemName}:*\n`;
+                    Object.entries(teacherCounts)
+                        .sort(([, a], [, b]) => b - a) // Sort desc
+                        .forEach(([name, count]) => {
+                            sectionMsg += `   👤 ${name} (🔢 ${count})\n`;
+                        });
+                });
+                return sectionMsg;
+            };
+
+            msg += generateDetailSection('الاستراتيجيات المستخدمة', detailedStats.usageDetails.strategies);
+            msg += generateDetailSection('الوسائل المستخدمة', detailedStats.usageDetails.tools);
+            msg += generateDetailSection('المصادر المستخدمة', detailedStats.usageDetails.sources);
+            msg += generateDetailSection('البرامج المنفذة', detailedStats.usageDetails.programs);
+
+            window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
+        } else {
+            // Default export for other formats
+            exportKeyMetrics(format, basicStats, t);
+        }
     };
 
-    // Helper to format detailed list
+    // Helper to format detailed list with icons
     const renderDetailsList = (detailsMap: Record<string, Record<string, number>>, title: string) => {
         const items = Object.entries(detailsMap);
         if (items.length === 0) return null;
@@ -216,13 +265,13 @@ const KeyMetricsView: React.FC<{ reports: Report[], teachers: Teacher[] }> = ({ 
                         // Sort teachers by count descending
                         const sortedTeachers = Object.entries(teacherCounts)
                             .sort(([, a], [, b]) => b - a)
-                            .map(([name, count]) => `${name} (${count})`)
-                            .join('، ');
+                            .map(([name, count]) => `👤 ${name} (🔢 ${count})`)
+                            .join(' ،  ');
                         
                         return (
                             <div key={itemName} className="text-sm border-b pb-2 last:border-0">
-                                <span className="font-bold text-gray-800">🔹 {itemName}: </span>
-                                <span className="text-gray-600">{sortedTeachers}</span>
+                                <span className="font-bold text-gray-800 block mb-1">🔸 {itemName}: </span>
+                                <span className="text-gray-600 leading-relaxed">{sortedTeachers}</span>
                             </div>
                         );
                     })}
@@ -356,11 +405,28 @@ const KeyMetricsView: React.FC<{ reports: Report[], teachers: Teacher[] }> = ({ 
 // --- Evaluation Analysis Tab (Fully Implemented) ---
 const EvaluationAnalysisView: React.FC<{ reports: Report[], teachers: Teacher[] }> = ({ reports, teachers }) => {
     const { t } = useLanguage();
+    const [subTypeFilter, setSubTypeFilter] = useState<'all' | 'general' | 'brief' | 'extended' | 'subject_specific'>('all');
+    const teacherMap = useMemo(() => new Map(teachers.map(t => [t.id, t.name])), [teachers]);
 
     const analysis = useMemo(() => {
-        const criteriaMap: { [label: string]: { sum: number; count: number } } = {};
+        // Filter reports based on selected subtype
+        const filteredReports = reports.filter(r => {
+            if (subTypeFilter === 'all') return true;
+            if (subTypeFilter === 'general') return r.evaluationType === 'general';
+            if (r.evaluationType === 'class_session') {
+                return (r as ClassSessionEvaluationReport).subType === subTypeFilter;
+            }
+            return false; // Should not happen for class session subtype filter if report is not class session
+        });
 
-        reports.forEach(report => {
+        // Map: CriterionLabel -> { totalSum, totalCount, teachers: { teacherId: { sum, count, name } } }
+        const criteriaMap: Record<string, { 
+            sum: number; 
+            count: number; 
+            teachers: Record<string, { sum: number; count: number; name: string }> 
+        }> = {};
+
+        filteredReports.forEach(report => {
             let criteria: any[] = [];
             if (report.evaluationType === 'general' || report.evaluationType === 'special') {
                 criteria = (report as GeneralEvaluationReport | SpecialReport).criteria;
@@ -368,45 +434,142 @@ const EvaluationAnalysisView: React.FC<{ reports: Report[], teachers: Teacher[] 
                 criteria = (report as ClassSessionEvaluationReport).criterionGroups.flatMap(g => g.criteria);
             }
 
+            const teacherName = teacherMap.get(report.teacherId) || 'Unknown';
+
             criteria.forEach(c => {
                 if (!criteriaMap[c.label]) {
-                    criteriaMap[c.label] = { sum: 0, count: 0 };
+                    criteriaMap[c.label] = { sum: 0, count: 0, teachers: {} };
                 }
+                
+                // Aggregate total
                 criteriaMap[c.label].sum += c.score;
                 criteriaMap[c.label].count += 1;
+
+                // Aggregate per teacher
+                if (!criteriaMap[c.label].teachers[report.teacherId]) {
+                    criteriaMap[c.label].teachers[report.teacherId] = { sum: 0, count: 0, name: teacherName };
+                }
+                criteriaMap[c.label].teachers[report.teacherId].sum += c.score;
+                criteriaMap[c.label].teachers[report.teacherId].count += 1;
             });
         });
 
-        // Convert to array and calculate averages (0-4 scale converted to percentage)
-        const result = Object.entries(criteriaMap).map(([label, data]) => ({
-            label,
-            percentage: (data.sum / (data.count * 4)) * 100,
-            count: data.count
-        }));
+        // Convert to array and calculate averages
+        const result = Object.entries(criteriaMap).map(([label, data]) => {
+            const overallPercentage = (data.sum / (data.count * 4)) * 100;
+            
+            // Process teachers list
+            const teacherDetails = Object.values(data.teachers).map(tData => ({
+                name: tData.name,
+                percentage: (tData.sum / (tData.count * 4)) * 100,
+                count: tData.count
+            }));
 
-        // Sort by lowest percentage first (to show areas for improvement)
+            // Sort teachers ascending (lowest percentage first) as requested
+            teacherDetails.sort((a, b) => a.percentage - b.percentage);
+
+            return {
+                label,
+                percentage: overallPercentage,
+                count: data.count,
+                teacherDetails
+            };
+        });
+
+        // Sort by lowest overall percentage first
         return result.sort((a, b) => a.percentage - b.percentage);
-    }, [reports]);
+    }, [reports, subTypeFilter, teacherMap]);
 
     const handleExport = (format: 'txt' | 'pdf' | 'excel' | 'whatsapp') => {
-        exportEvaluationAnalysis(format, analysis, t);
+        if (format === 'whatsapp') {
+            let msg = `*📊 ${t('evaluationElementAnalysis')}*\n`;
+            msg += `نوع التقرير: ${
+                subTypeFilter === 'all' ? 'الكل' : 
+                subTypeFilter === 'general' ? 'عام' :
+                subTypeFilter === 'brief' ? 'مختصر' :
+                subTypeFilter === 'extended' ? 'موسع' : 'حسب المادة'
+            }\n\n`;
+
+            analysis.forEach(item => {
+                msg += `📌 *${item.label}*\n`;
+                msg += `   المتوسط العام: ${item.percentage.toFixed(1)}% (تكرار: ${item.count})\n`;
+                msg += `   🔻 *تفصيل المعلمين (من الأقل للأعلى):*\n`;
+                item.teacherDetails.forEach(t => {
+                    let icon = '🟢';
+                    if (t.percentage <= 50) icon = '🔴';
+                    else if (t.percentage <= 75) icon = '🟡';
+                    else if (t.percentage <= 89) icon = '🔵';
+                    
+                    msg += `   ${icon} ${t.name} (${t.percentage.toFixed(0)}%)\n`;
+                });
+                msg += `\n`;
+            });
+
+            window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
+        } else {
+            exportEvaluationAnalysis(format, analysis, t);
+        }
     };
 
     return (
         <div className="space-y-6">
-            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
-                <p>ملاحظة: يتم ترتيب المعايير من الأقل أداءً إلى الأعلى، لتسليط الضوء على جوانب التطوير المطلوبة.</p>
+            {/* Filter Buttons */}
+            <div className="flex flex-wrap justify-center gap-2 mb-4">
+                {[
+                    { id: 'all', label: 'الكل' },
+                    { id: 'general', label: t('generalEvaluation') },
+                    { id: 'brief', label: t('briefClassSessionEvaluation') },
+                    { id: 'extended', label: t('extendedClassSessionEvaluation') },
+                    { id: 'subject_specific', label: t('subjectSpecificClassSessionEvaluation') }
+                ].map(opt => (
+                    <button
+                        key={opt.id}
+                        onClick={() => setSubTypeFilter(opt.id as any)}
+                        className={`px-3 py-1 rounded-full text-sm font-semibold transition-colors ${subTypeFilter === opt.id ? 'bg-primary text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                    >
+                        {opt.label}
+                    </button>
+                ))}
             </div>
 
-            <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
+            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
+                <p>ملاحظة: يتم ترتيب المعايير والمعلمين من الأقل أداءً إلى الأعلى، لتسليط الضوء على جوانب التطوير المطلوبة.</p>
+            </div>
+
+            <div className="space-y-6 max-h-[600px] overflow-y-auto pr-2">
                 {analysis.length > 0 ? analysis.map((item, index) => (
-                    <div key={index} className="flex items-center gap-4 p-2 bg-white border-b hover:bg-gray-50">
-                        <div className="w-1/3 md:w-1/4 text-sm font-semibold text-gray-700">{item.label}</div>
-                        <div className="flex-grow">
-                            <ProgressBar label="" percentage={item.percentage} />
+                    <div key={index} className="bg-white border rounded-lg p-3 shadow-sm">
+                        <div className="flex items-center gap-4 mb-2">
+                            <div className="w-1/3 md:w-1/4 font-bold text-gray-800">{item.label}</div>
+                            <div className="flex-grow">
+                                <ProgressBar label="" percentage={item.percentage} />
+                            </div>
+                            <div className="w-16 text-center text-xs text-gray-500">
+                                ({item.count} تكرار)
+                            </div>
                         </div>
-                        <div className="w-16 text-center text-xs text-gray-500">
-                            ({item.count} تكرار)
+                        
+                        {/* Teacher Breakdown */}
+                        <div className="mt-3 bg-gray-50 p-2 rounded text-sm">
+                            <p className="font-semibold text-gray-600 mb-1 border-b pb-1">أداء المعلمين في هذا المعيار (تصاعدياً):</p>
+                            <div className="flex flex-wrap gap-x-4 gap-y-2">
+                                {item.teacherDetails.map((t, idx) => {
+                                    let colorClass = 'text-green-600';
+                                    let icon = '🟢';
+                                    if (t.percentage <= 25) { colorClass = 'text-red-600'; icon = '🔴'; }
+                                    else if (t.percentage <= 50) { colorClass = 'text-orange-600'; icon = '🟠'; }
+                                    else if (t.percentage <= 75) { colorClass = 'text-yellow-600'; icon = '🟡'; }
+                                    else if (t.percentage <= 89) { colorClass = 'text-blue-600'; icon = '🔵'; }
+
+                                    return (
+                                        <span key={idx} className={`inline-flex items-center gap-1 ${colorClass} font-medium bg-white px-2 py-1 rounded border shadow-sm`}>
+                                            <span>{icon}</span>
+                                            <span>{t.name}</span>
+                                            <span className="text-xs text-gray-500">({t.percentage.toFixed(0)}%)</span>
+                                        </span>
+                                    );
+                                })}
+                            </div>
                         </div>
                     </div>
                 )) : <p className="text-center py-8 text-gray-500">لا توجد بيانات كافية للتحليل.</p>}
