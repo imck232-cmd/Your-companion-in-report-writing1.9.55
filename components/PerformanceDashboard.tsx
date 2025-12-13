@@ -34,8 +34,17 @@ const Section: React.FC<{ title: string; children: React.ReactNode; defaultOpen?
     );
 };
 
-const ProgressBar: React.FC<{ label: string; percentage: number }> = ({ label, percentage }) => {
+const ProgressBar: React.FC<{ label: string; percentage: number; customColors?: boolean }> = ({ label, percentage, customColors = false }) => {
     const getProgressBarColor = (p: number) => {
+        if (customColors) {
+            // New logic based on user request
+            if (p <= 25) return 'bg-red-500';
+            if (p <= 50) return 'bg-yellow-500';
+            if (p <= 75) return 'bg-orange-500';
+            if (p <= 89) return 'bg-blue-600'; // Using blue-600 for better visibility
+            return 'bg-green-500';
+        }
+        // Default logic
         if (p < 26) return 'bg-red-500';
         if (p < 51) return 'bg-yellow-500';
         if (p < 76) return 'bg-orange-500';
@@ -46,8 +55,8 @@ const ProgressBar: React.FC<{ label: string; percentage: number }> = ({ label, p
     return (
         <div className="text-center w-full">
             <p className="font-semibold text-gray-700 text-sm mb-1">{label}</p>
-            <div className="w-full bg-gray-200 rounded-full h-3 mb-1">
-                <div className={`${color} h-3 rounded-full transition-all duration-500`} style={{ width: `${Math.min(percentage, 100)}%` }}></div>
+            <div className={`w-full bg-gray-200 rounded-full ${customColors ? 'h-4' : 'h-3'} mb-1`}>
+                <div className={`${color} ${customColors ? 'h-4' : 'h-3'} rounded-full transition-all duration-500`} style={{ width: `${Math.min(percentage, 100)}%` }}></div>
             </div>
             <p className="font-bold text-sm">{percentage.toFixed(1)}%</p>
         </div>
@@ -97,14 +106,26 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = (props) => {
 };
 
 
-// --- Key Metrics Tab (Fully Implemented) ---
+// --- Key Metrics Tab (Updated with Goal Tracking and Details) ---
 const KeyMetricsView: React.FC<{ reports: Report[], teachers: Teacher[] }> = ({ reports, teachers }) => {
     const { t } = useLanguage();
+    
+    // State for Date Range and Goals
+    const [dateRange, setDateRange] = useState({ start: '', end: '' });
+    const [goals, setGoals] = useState({
+        strategies: 0,
+        tools: 0,
+        sources: 0,
+        programs: 0
+    });
 
-    const stats = useMemo(() => {
+    const teacherMap = useMemo(() => new Map(teachers.map(t => [t.id, t.name])), [teachers]);
+
+    // Stats Calculation
+    const { basicStats, detailedStats } = useMemo(() => {
+        // 1. Basic Stats (Existing)
         const totalReports = reports.length;
         const totalTeachers = teachers.length;
-        
         let totalScoreSum = 0;
         const typeCounts = { general: 0, class_session: 0, special: 0 };
         
@@ -114,35 +135,117 @@ const KeyMetricsView: React.FC<{ reports: Report[], teachers: Teacher[] }> = ({ 
             else if (r.evaluationType === 'class_session') typeCounts.class_session++;
             else if (r.evaluationType === 'special') typeCounts.special++;
         });
-
         const overallAverage = totalReports > 0 ? totalScoreSum / totalReports : 0;
 
-        return {
-            totalTeachers,
-            totalReports,
-            overallAverage,
-            typeCounts
+        // 2. Detailed Stats (New) based on Date Range
+        const filteredReports = reports.filter(r => {
+            if (!dateRange.start && !dateRange.end) return true;
+            const rDate = new Date(r.date);
+            const start = dateRange.start ? new Date(dateRange.start) : new Date('2000-01-01');
+            const end = dateRange.end ? new Date(dateRange.end) : new Date('2100-01-01');
+            return rDate >= start && rDate <= end;
+        });
+
+        const usageCounts = { strategies: 0, tools: 0, sources: 0, programs: 0 };
+        const usageDetails = {
+            strategies: {} as Record<string, Record<string, number>>,
+            tools: {} as Record<string, Record<string, number>>,
+            sources: {} as Record<string, Record<string, number>>,
+            programs: {} as Record<string, Record<string, number>>
         };
-    }, [reports, teachers]);
+
+        const processField = (report: Report, fieldName: keyof typeof usageCounts, reportField: string) => {
+            if (!reportField) return;
+            const items = reportField.split(/[,،\n]+/).map(s => s.trim().replace(/^- /, '')).filter(Boolean);
+            
+            items.forEach(item => {
+                usageCounts[fieldName]++; // Increment total count
+                
+                // Track detail per item per teacher
+                if (!usageDetails[fieldName][item]) {
+                    usageDetails[fieldName][item] = {};
+                }
+                const teacherName = teacherMap.get(report.teacherId) || 'Unknown';
+                usageDetails[fieldName][item][teacherName] = (usageDetails[fieldName][item][teacherName] || 0) + 1;
+            });
+        };
+
+        filteredReports.forEach(r => {
+            let strats = '', tools = '', sources = '', progs = '';
+            
+            if (r.evaluationType === 'general') {
+                strats = (r as GeneralEvaluationReport).strategies;
+                tools = (r as GeneralEvaluationReport).tools;
+                sources = (r as GeneralEvaluationReport).sources;
+                progs = (r as GeneralEvaluationReport).programs;
+            } else if (r.evaluationType === 'class_session') {
+                strats = (r as ClassSessionEvaluationReport).strategies;
+                tools = (r as ClassSessionEvaluationReport).tools;
+                sources = (r as ClassSessionEvaluationReport).sources;
+                progs = (r as ClassSessionEvaluationReport).programs;
+            }
+            // Add other types if necessary (e.g. SpecialReport usually follows General structure regarding these fields if added)
+
+            processField(r, 'strategies', strats);
+            processField(r, 'tools', tools);
+            processField(r, 'sources', sources);
+            processField(r, 'programs', progs);
+        });
+
+        return {
+            basicStats: { totalTeachers, totalReports, overallAverage, typeCounts },
+            detailedStats: { usageCounts, usageDetails }
+        };
+
+    }, [reports, teachers, dateRange, teacherMap]);
 
     const handleExport = (format: 'txt' | 'pdf' | 'excel' | 'whatsapp') => {
-        exportKeyMetrics(format, stats, t);
+        exportKeyMetrics(format, basicStats, t);
+    };
+
+    // Helper to format detailed list
+    const renderDetailsList = (detailsMap: Record<string, Record<string, number>>, title: string) => {
+        const items = Object.entries(detailsMap);
+        if (items.length === 0) return null;
+
+        return (
+            <div className="border rounded-lg overflow-hidden bg-white shadow-sm mb-4">
+                <div className="bg-gray-100 p-3 font-bold text-lg text-primary border-b">{title}</div>
+                <div className="p-4 max-h-60 overflow-y-auto space-y-3">
+                    {items.map(([itemName, teacherCounts]) => {
+                        // Sort teachers by count descending
+                        const sortedTeachers = Object.entries(teacherCounts)
+                            .sort(([, a], [, b]) => b - a)
+                            .map(([name, count]) => `${name} (${count})`)
+                            .join('، ');
+                        
+                        return (
+                            <div key={itemName} className="text-sm border-b pb-2 last:border-0">
+                                <span className="font-bold text-gray-800">🔹 {itemName}: </span>
+                                <span className="text-gray-600">{sortedTeachers}</span>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        );
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-8">
+            {/* 1. Existing Basic Stats */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="bg-blue-50 p-6 rounded-lg text-center border border-blue-200 shadow-sm">
                     <h3 className="text-gray-600 font-semibold mb-2">{t('totalTeachers')}</h3>
-                    <p className="text-4xl font-bold text-blue-600">{stats.totalTeachers}</p>
+                    <p className="text-4xl font-bold text-blue-600">{basicStats.totalTeachers}</p>
                 </div>
                 <div className="bg-green-50 p-6 rounded-lg text-center border border-green-200 shadow-sm">
                     <h3 className="text-gray-600 font-semibold mb-2">{t('totalReports')}</h3>
-                    <p className="text-4xl font-bold text-green-600">{stats.totalReports}</p>
+                    <p className="text-4xl font-bold text-green-600">{basicStats.totalReports}</p>
                 </div>
                 <div className="bg-purple-50 p-6 rounded-lg text-center border border-purple-200 shadow-sm">
                     <h3 className="text-gray-600 font-semibold mb-2">{t('overallAveragePerformance')}</h3>
-                    <p className="text-4xl font-bold text-purple-600">{stats.overallAverage.toFixed(1)}%</p>
+                    <p className="text-4xl font-bold text-purple-600">{basicStats.overallAverage.toFixed(1)}%</p>
                 </div>
             </div>
 
@@ -154,9 +257,9 @@ const KeyMetricsView: React.FC<{ reports: Report[], teachers: Teacher[] }> = ({ 
                         <div className="relative w-32 h-32">
                             <svg className="w-full h-full" viewBox="0 0 36 36">
                                 <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#e5e7eb" strokeWidth="3" />
-                                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#3b82f6" strokeWidth="3" strokeDasharray={`${stats.totalReports ? (stats.typeCounts.general / stats.totalReports) * 100 : 0}, 100`} />
+                                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#3b82f6" strokeWidth="3" strokeDasharray={`${basicStats.totalReports ? (basicStats.typeCounts.general / basicStats.totalReports) * 100 : 0}, 100`} />
                             </svg>
-                            <div className="absolute inset-0 flex items-center justify-center font-bold text-lg text-blue-600">{stats.typeCounts.general}</div>
+                            <div className="absolute inset-0 flex items-center justify-center font-bold text-lg text-blue-600">{basicStats.typeCounts.general}</div>
                         </div>
                     </div>
                     <div className="flex flex-col items-center">
@@ -164,9 +267,9 @@ const KeyMetricsView: React.FC<{ reports: Report[], teachers: Teacher[] }> = ({ 
                         <div className="relative w-32 h-32">
                             <svg className="w-full h-full" viewBox="0 0 36 36">
                                 <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#e5e7eb" strokeWidth="3" />
-                                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#10b981" strokeWidth="3" strokeDasharray={`${stats.totalReports ? (stats.typeCounts.class_session / stats.totalReports) * 100 : 0}, 100`} />
+                                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#10b981" strokeWidth="3" strokeDasharray={`${basicStats.totalReports ? (basicStats.typeCounts.class_session / basicStats.totalReports) * 100 : 0}, 100`} />
                             </svg>
-                            <div className="absolute inset-0 flex items-center justify-center font-bold text-lg text-green-600">{stats.typeCounts.class_session}</div>
+                            <div className="absolute inset-0 flex items-center justify-center font-bold text-lg text-green-600">{basicStats.typeCounts.class_session}</div>
                         </div>
                     </div>
                     <div className="flex flex-col items-center">
@@ -174,11 +277,74 @@ const KeyMetricsView: React.FC<{ reports: Report[], teachers: Teacher[] }> = ({ 
                         <div className="relative w-32 h-32">
                             <svg className="w-full h-full" viewBox="0 0 36 36">
                                 <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#e5e7eb" strokeWidth="3" />
-                                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#f59e0b" strokeWidth="3" strokeDasharray={`${stats.totalReports ? (stats.typeCounts.special / stats.totalReports) * 100 : 0}, 100`} />
+                                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#f59e0b" strokeWidth="3" strokeDasharray={`${basicStats.totalReports ? (basicStats.typeCounts.special / basicStats.totalReports) * 100 : 0}, 100`} />
                             </svg>
-                            <div className="absolute inset-0 flex items-center justify-center font-bold text-lg text-yellow-600">{stats.typeCounts.special}</div>
+                            <div className="absolute inset-0 flex items-center justify-center font-bold text-lg text-yellow-600">{basicStats.typeCounts.special}</div>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            {/* 2. New Goals & Analysis Section */}
+            <div className="border-t-4 border-primary pt-6">
+                <h3 className="text-2xl font-bold text-center text-primary mb-6">تحليل الاستخدام والأهداف</h3>
+                
+                {/* Controls: Dates and Goals */}
+                <div className="bg-gray-100 p-4 rounded-lg mb-6 shadow-inner">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label className="block text-sm font-bold mb-1">{t('from_date')}</label>
+                            <input type="date" value={dateRange.start} onChange={e => setDateRange(p => ({...p, start: e.target.value}))} className="w-full p-2 border rounded" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-bold mb-1">{t('to_date')}</label>
+                            <input type="date" value={dateRange.end} onChange={e => setDateRange(p => ({...p, end: e.target.value}))} className="w-full p-2 border rounded" />
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div>
+                            <label className="block text-xs font-bold mb-1">الاستراتيجيات المطلوبة</label>
+                            <input type="number" value={goals.strategies || ''} onChange={e => setGoals(p => ({...p, strategies: parseInt(e.target.value) || 0}))} className="w-full p-2 border rounded" placeholder="0" />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold mb-1">الوسائل المطلوبة</label>
+                            <input type="number" value={goals.tools || ''} onChange={e => setGoals(p => ({...p, tools: parseInt(e.target.value) || 0}))} className="w-full p-2 border rounded" placeholder="0" />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold mb-1">المصادر المطلوبة</label>
+                            <input type="number" value={goals.sources || ''} onChange={e => setGoals(p => ({...p, sources: parseInt(e.target.value) || 0}))} className="w-full p-2 border rounded" placeholder="0" />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold mb-1">البرامج المطلوبة</label>
+                            <input type="number" value={goals.programs || ''} onChange={e => setGoals(p => ({...p, programs: parseInt(e.target.value) || 0}))} className="w-full p-2 border rounded" placeholder="0" />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Progress Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    {['strategies', 'tools', 'sources', 'programs'].map((key) => {
+                        const count = detailedStats.usageCounts[key as keyof typeof detailedStats.usageCounts];
+                        const goal = goals[key as keyof typeof goals];
+                        const percentage = goal > 0 ? (count / goal) * 100 : 0;
+                        const labels = { strategies: 'الاستراتيجيات', tools: 'الوسائل', sources: 'المصادر', programs: 'البرامج' };
+                        
+                        return (
+                            <div key={key} className="bg-white p-4 rounded-xl border-2 border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+                                <h4 className="text-center font-bold text-gray-700 mb-2">{labels[key as keyof typeof labels]}</h4>
+                                <div className="text-center text-3xl font-bold text-primary mb-1">{count} <span className="text-sm text-gray-400 font-normal">/ {goal}</span></div>
+                                <ProgressBar label="نسبة الإنجاز" percentage={percentage} customColors={true} />
+                            </div>
+                        )
+                    })}
+                </div>
+
+                {/* Detailed Breakdown */}
+                <div className="space-y-4">
+                    {renderDetailsList(detailedStats.usageDetails.strategies, 'ب‌- أسماء الاستراتيجيات المستخدمة والمعلمين المنفذين')}
+                    {renderDetailsList(detailedStats.usageDetails.tools, 'ت‌- أسماء الوسائل المستخدمة والمعلمين المنفذين')}
+                    {renderDetailsList(detailedStats.usageDetails.sources, 'ث‌- أسماء المصادر المستخدمة والمعلمين المنفذين')}
+                    {renderDetailsList(detailedStats.usageDetails.programs, 'ج‌- أسماء البرامج المنفذة والمعلمين المنفذين')}
                 </div>
             </div>
             
