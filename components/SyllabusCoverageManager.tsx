@@ -297,12 +297,16 @@ const ReportEditor: React.FC<{
             }));
         }
 
-        onUpdate({ 
-            ...report, 
-            ...otherData, 
+        // Use functional state update to ensure we don't lose current state if multiple updates happen
+        // But since onUpdate replaces the object in the parent array, we create a new object based on 'report'
+        const newReport = { 
+            ...report, // Preserve all existing fields first
+            ...otherData, // Overwrite with AI data (only what's provided)
             teacherId: resolvedTeacherId, 
             branches: updatedBranches 
-        });
+        };
+
+        onUpdate(newReport);
         setShowAIImport(false);
     };
 
@@ -565,73 +569,77 @@ const ReportEditor: React.FC<{
     );
 };
 
-const SyllabusCoverageManager: React.FC<SyllabusCoverageManagerProps> = ({
-    reports,
-    setReports,
-    school,
-    academicYear,
-    semester,
-    allTeachers,
-}) => {
+const SyllabusCoverageManager: React.FC<SyllabusCoverageManagerProps> = ({ reports, setReports, school, academicYear, semester, allTeachers }) => {
     const { t } = useLanguage();
-    const [collapsedIds, setCollapsedIds] = useState<string[]>([]);
+    const { currentUser } = useAuth();
+    
+    // Track expanded reports. Default to all expanded on mount or keep it flexible.
+    // Let's make new reports expanded by default.
+    const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
-    useEffect(() => {
-        setCollapsedIds(reports.map(r => r.id));
-    }, [reports.length]); 
-
-    const handleAddReport = () => {
+    const handleAddReportWithExpand = () => {
         const newReport: SyllabusCoverageReport = {
             id: `scr-${Date.now()}`,
             schoolName: school,
             academicYear: academicYear,
             semester: semester,
-            teacherId: '',
             subject: '',
             grade: '',
+            branches: [],
+            authorId: currentUser?.id,
+            teacherId: '',
             branch: 'main',
             date: new Date().toISOString().split('T')[0],
-            branches: [],
         };
         setReports(prev => [newReport, ...prev]);
+        setExpandedIds(prev => new Set(prev).add(newReport.id));
     };
 
-    const handleUpdateReport = (updated: SyllabusCoverageReport) => {
-        setReports(prev => prev.map(r => r.id === updated.id ? updated : r));
+    const handleUpdateReport = (updatedReport: SyllabusCoverageReport) => {
+        setReports(prev => prev.map(r => r.id === updatedReport.id ? updatedReport : r));
     };
 
-    const handleDeleteReport = (id: string) => {
-        if(window.confirm(t('confirmDelete'))) {
-            setReports(prev => prev.filter(r => r.id !== id));
+    const handleDeleteReport = (reportId: string) => {
+        if (window.confirm(t('confirmDelete'))) {
+            setReports(prev => prev.filter(r => r.id !== reportId));
         }
     };
 
-    const toggleCollapse = (id: string) => {
-        setCollapsedIds(prev => prev.includes(id) ? prev.filter(cid => cid !== id) : [...prev, id]);
+    const toggleExpand = (id: string) => {
+        setExpandedIds(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(id)) newSet.delete(id);
+            else newSet.add(id);
+            return newSet;
+        });
     };
 
     return (
         <div className="space-y-6">
-             <div className="flex justify-between items-center bg-white p-4 rounded-lg shadow-sm border">
+            <div className="flex justify-between items-center">
                 <h2 className="text-2xl font-bold text-primary">{t('syllabusCoverageReport')}</h2>
-                <button onClick={handleAddReport} className="px-4 py-2 bg-primary text-white font-bold rounded-lg hover:bg-opacity-90 transition-colors">
+                <button onClick={handleAddReportWithExpand} className="px-4 py-2 bg-primary text-white font-bold rounded-lg hover:bg-opacity-90 transition-colors">
                     + {t('addNewSyllabusReport')}
                 </button>
             </div>
-            
+
             <div className="space-y-4">
-                {reports.length > 0 ? reports.map(report => (
-                    <ReportEditor 
-                        key={report.id}
-                        report={report}
-                        allReports={reports}
-                        allTeachers={allTeachers}
-                        onUpdate={handleUpdateReport}
-                        onDelete={handleDeleteReport}
-                        isCollapsed={collapsedIds.includes(report.id)}
-                        onToggleCollapse={() => toggleCollapse(report.id)}
-                    />
-                )) : <p className="text-center text-gray-500 py-8">{t('noSyllabusCoverageReports')}</p>}
+                {reports.length > 0 ? (
+                    reports.map(report => (
+                        <ReportEditor 
+                            key={report.id} 
+                            report={report} 
+                            allReports={reports}
+                            allTeachers={allTeachers}
+                            onUpdate={handleUpdateReport} 
+                            onDelete={handleDeleteReport}
+                            isCollapsed={!expandedIds.has(report.id)}
+                            onToggleCollapse={() => toggleExpand(report.id)}
+                        />
+                    ))
+                ) : (
+                    <p className="text-center text-gray-500 py-8">{t('noSyllabusCoverageReports')}</p>
+                )}
             </div>
         </div>
     );

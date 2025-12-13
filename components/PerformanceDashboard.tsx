@@ -160,7 +160,14 @@ const KeyMetricsView: React.FC<{ reports: Report[], teachers: Teacher[] }> = ({ 
             return rDate >= start && rDate <= end;
         });
 
-        const usageCounts = { strategies: 0, tools: 0, sources: 0, programs: 0 };
+        // Initialize structures to hold counts PER TEACHER
+        const teacherCounts = {
+            strategies: {} as Record<string, number>,
+            tools: {} as Record<string, number>,
+            sources: {} as Record<string, number>,
+            programs: {} as Record<string, number>
+        };
+
         const usageDetails = {
             strategies: {} as Record<string, Record<string, number>>,
             tools: {} as Record<string, Record<string, number>>,
@@ -168,13 +175,22 @@ const KeyMetricsView: React.FC<{ reports: Report[], teachers: Teacher[] }> = ({ 
             programs: {} as Record<string, Record<string, number>>
         };
 
-        const processField = (report: Report, fieldName: keyof typeof usageCounts, reportField: string) => {
+        // Initialize counts for all known teachers to 0 to ensure accurate percentage calculation
+        teachers.forEach(t => {
+            teacherCounts.strategies[t.id] = 0;
+            teacherCounts.tools[t.id] = 0;
+            teacherCounts.sources[t.id] = 0;
+            teacherCounts.programs[t.id] = 0;
+        });
+
+        const processField = (report: Report, fieldName: keyof typeof teacherCounts, reportField: string) => {
             if (!reportField) return;
             const items = reportField.split(/[,،\n]+/).map(s => s.trim().replace(/^- /, '')).filter(Boolean);
             
+            // Increment teacher's total count for this category
+            teacherCounts[fieldName][report.teacherId] = (teacherCounts[fieldName][report.teacherId] || 0) + items.length;
+
             items.forEach(item => {
-                usageCounts[fieldName]++; // Increment total count
-                
                 // Track detail per item per teacher
                 if (!usageDetails[fieldName][item]) {
                     usageDetails[fieldName][item] = {};
@@ -205,12 +221,41 @@ const KeyMetricsView: React.FC<{ reports: Report[], teachers: Teacher[] }> = ({ 
             processField(r, 'programs', progs);
         });
 
+        // Total usage (sum of all teachers)
+        const totalUsage = {
+            strategies: Object.values(teacherCounts.strategies).reduce((a, b) => a + b, 0),
+            tools: Object.values(teacherCounts.tools).reduce((a, b) => a + b, 0),
+            sources: Object.values(teacherCounts.sources).reduce((a, b) => a + b, 0),
+            programs: Object.values(teacherCounts.programs).reduce((a, b) => a + b, 0),
+        };
+
         return {
             basicStats: { totalTeachers, totalReports, overallAverage, typeCounts },
-            detailedStats: { usageCounts, usageDetails }
+            detailedStats: { teacherCounts, usageDetails, totalUsage }
         };
 
     }, [reports, teachers, dateRange, teacherMap]);
+
+    // Calculate Achievement Percentages based on Goals
+    const achievementStats = useMemo(() => {
+        const totalTeachers = teachers.length || 1; // Avoid division by zero
+        
+        const calculatePercentage = (category: 'strategies' | 'tools' | 'sources' | 'programs') => {
+            const goal = goals[category];
+            if (goal <= 0) return 0;
+            
+            const teachersMetGoal = Object.values(detailedStats.teacherCounts[category]).filter(count => count >= goal).length;
+            return Math.min(100, (teachersMetGoal / totalTeachers) * 100);
+        };
+
+        return {
+            strategies: calculatePercentage('strategies'),
+            tools: calculatePercentage('tools'),
+            sources: calculatePercentage('sources'),
+            programs: calculatePercentage('programs')
+        };
+    }, [detailedStats.teacherCounts, goals, teachers.length]);
+
 
     // Custom Excel Export for Key Metrics (Detailed)
     const exportKeyMetricsToExcel = () => {
@@ -229,11 +274,11 @@ const KeyMetricsView: React.FC<{ reports: Report[], teachers: Teacher[] }> = ({ 
             [t('classSessionEvaluation'), basicStats.typeCounts.class_session],
             [t('specialReports'), basicStats.typeCounts.special],
             ['', ''],
-            ['المجال', 'العدد المحقق', 'العدد المطلوب', 'النسبة'],
-            ['الاستراتيجيات', detailedStats.usageCounts.strategies, goals.strategies, goals.strategies > 0 ? (detailedStats.usageCounts.strategies/goals.strategies*100).toFixed(1)+'%' : '0%'],
-            ['الوسائل', detailedStats.usageCounts.tools, goals.tools, goals.tools > 0 ? (detailedStats.usageCounts.tools/goals.tools*100).toFixed(1)+'%' : '0%'],
-            ['المصادر', detailedStats.usageCounts.sources, goals.sources, goals.sources > 0 ? (detailedStats.usageCounts.sources/goals.sources*100).toFixed(1)+'%' : '0%'],
-            ['البرامج', detailedStats.usageCounts.programs, goals.programs, goals.programs > 0 ? (detailedStats.usageCounts.programs/goals.programs*100).toFixed(1)+'%' : '0%'],
+            ['المجال', 'العدد الكلي المستخدم', 'الهدف المطلوب (لكل معلم)', 'نسبة المعلمين المحققين للهدف'],
+            ['الاستراتيجيات', detailedStats.totalUsage.strategies, goals.strategies, achievementStats.strategies.toFixed(1) + '%'],
+            ['الوسائل', detailedStats.totalUsage.tools, goals.tools, achievementStats.tools.toFixed(1) + '%'],
+            ['المصادر', detailedStats.totalUsage.sources, goals.sources, achievementStats.sources.toFixed(1) + '%'],
+            ['البرامج', detailedStats.totalUsage.programs, goals.programs, achievementStats.programs.toFixed(1) + '%'],
         ];
         const wsStats = XLSX.utils.aoa_to_sheet(statsData);
         XLSX.utils.book_append_sheet(wb, wsStats, "الإحصائيات العامة");
@@ -269,7 +314,7 @@ const KeyMetricsView: React.FC<{ reports: Report[], teachers: Teacher[] }> = ({ 
         }
         
         if (whatsAppSelection.goals) {
-            msg += `\n*🎯 تحليل الأهداف:*\n`;
+            msg += `\n*🎯 تحليل الأهداف (نسبة المعلمين المحققين):*\n`;
             const goalKeys = [
                 { k: 'strategies', l: 'الاستراتيجيات' }, 
                 { k: 'tools', l: 'الوسائل' }, 
@@ -278,10 +323,10 @@ const KeyMetricsView: React.FC<{ reports: Report[], teachers: Teacher[] }> = ({ 
             ];
             
             goalKeys.forEach(({k, l}) => {
-                const count = detailedStats.usageCounts[k as keyof typeof detailedStats.usageCounts];
+                const totalUsed = detailedStats.totalUsage[k as keyof typeof detailedStats.totalUsage];
+                const pct = achievementStats[k as keyof typeof achievementStats];
                 const goal = goals[k as keyof typeof goals];
-                const pct = goal > 0 ? (count / goal) * 100 : 0;
-                msg += `🔹 *${l}:* ${count} / ${goal} (${pct.toFixed(1)}%)\n`;
+                msg += `🔹 *${l}:* إجمالي الاستخدام (${totalUsed}) - نسبة الإنجاز (${pct.toFixed(1)}%) - الهدف (${goal})\n`;
             });
             msg += `------------------\n`;
         }
@@ -484,16 +529,21 @@ const KeyMetricsView: React.FC<{ reports: Report[], teachers: Teacher[] }> = ({ 
                 {/* Progress Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                     {['strategies', 'tools', 'sources', 'programs'].map((key) => {
-                        const count = detailedStats.usageCounts[key as keyof typeof detailedStats.usageCounts];
+                        const totalUsageCount = detailedStats.totalUsage[key as keyof typeof detailedStats.totalUsage];
+                        const percentage = achievementStats[key as keyof typeof achievementStats];
                         const goal = goals[key as keyof typeof goals];
-                        const percentage = goal > 0 ? (count / goal) * 100 : 0;
+                        
                         const labels = { strategies: 'الاستراتيجيات', tools: 'الوسائل', sources: 'المصادر', programs: 'البرامج' };
                         
                         return (
                             <div key={key} className="bg-white p-4 rounded-xl border-2 border-gray-100 shadow-sm hover:shadow-md transition-shadow">
                                 <h4 className="text-center font-bold text-gray-700 mb-2">{labels[key as keyof typeof labels]}</h4>
-                                <div className="text-center text-3xl font-bold text-primary mb-1">{count} <span className="text-sm text-gray-400 font-normal">/ {goal}</span></div>
-                                <ProgressBar label="نسبة الإنجاز" percentage={percentage} customColors={true} />
+                                <div className="text-center text-3xl font-bold text-primary mb-1">{totalUsageCount} <span className="text-sm text-gray-400 font-normal">استخدام كلي</span></div>
+                                {goal > 0 ? (
+                                    <ProgressBar label="نسبة المعلمين المحققين للهدف" percentage={percentage} customColors={true} />
+                                ) : (
+                                    <p className="text-center text-xs text-gray-500">حدد هدفاً لعرض النسبة</p>
+                                )}
                             </div>
                         )
                     })}
