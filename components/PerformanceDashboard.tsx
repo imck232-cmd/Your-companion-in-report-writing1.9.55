@@ -396,11 +396,11 @@ const KeyMetricsView: React.FC<{ reports: Report[], teachers: Teacher[] }> = ({ 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="bg-blue-50 p-6 rounded-lg text-center border border-blue-200 shadow-sm">
                     <h3 className="text-gray-600 font-semibold mb-2">{t('totalTeachers')}</h3>
-                    <p className="text-4xl font-bold text-blue-600">{basicStats.totalTeachers}</p>
+                    <p className="text-4xl font-bold text-blue-600">{basicStats.totalTeachers.toString()}</p>
                 </div>
                 <div className="bg-green-50 p-6 rounded-lg text-center border border-green-200 shadow-sm">
                     <h3 className="text-gray-600 font-semibold mb-2">{t('totalReports')}</h3>
-                    <p className="text-4xl font-bold text-green-600">{basicStats.totalReports}</p>
+                    <p className="text-4xl font-bold text-green-600">{basicStats.totalReports.toString()}</p>
                 </div>
                 <div className="bg-purple-50 p-6 rounded-lg text-center border border-purple-200 shadow-sm">
                     <h3 className="text-gray-600 font-semibold mb-2">{t('overallAveragePerformance')}</h3>
@@ -415,8 +415,8 @@ const KeyMetricsView: React.FC<{ reports: Report[], teachers: Teacher[] }> = ({ 
                         <span className="font-bold mb-2">{t('generalEvaluation')}</span>
                         <div className="relative w-32 h-32">
                             <svg className="w-full h-full" viewBox="0 0 36 36">
-                                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#e5e7eb" strokeWidth="3" />
-                                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#3b82f6" strokeWidth="3" strokeDasharray={`${basicStats.totalReports ? (basicStats.typeCounts.general / basicStats.totalReports) * 100 : 0}, 100`} />
+                                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#e5e7eb" strokeWidth={3} />
+                                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#3b82f6" strokeWidth={3} strokeDasharray={`${basicStats.totalReports ? (basicStats.typeCounts.general / basicStats.totalReports) * 100 : 0}, 100`} />
                             </svg>
                             <div className="absolute inset-0 flex items-center justify-center font-bold text-lg text-blue-600">{basicStats.typeCounts.general}</div>
                         </div>
@@ -425,8 +425,8 @@ const KeyMetricsView: React.FC<{ reports: Report[], teachers: Teacher[] }> = ({ 
                         <span className="font-bold mb-2">{t('classSessionEvaluation')}</span>
                         <div className="relative w-32 h-32">
                             <svg className="w-full h-full" viewBox="0 0 36 36">
-                                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#e5e7eb" strokeWidth="3" />
-                                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#10b981" strokeWidth="3" strokeDasharray={`${basicStats.totalReports ? (basicStats.typeCounts.class_session / basicStats.totalReports) * 100 : 0}, 100`} />
+                                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#e5e7eb" strokeWidth={3} />
+                                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#10b981" strokeWidth={3} strokeDasharray={`${basicStats.totalReports ? (basicStats.typeCounts.class_session / basicStats.totalReports) * 100 : 0}, 100`} />
                             </svg>
                             <div className="absolute inset-0 flex items-center justify-center font-bold text-lg text-green-600">{basicStats.typeCounts.class_session}</div>
                         </div>
@@ -435,8 +435,8 @@ const KeyMetricsView: React.FC<{ reports: Report[], teachers: Teacher[] }> = ({ 
                         <span className="font-bold mb-2">{t('specialReports')}</span>
                         <div className="relative w-32 h-32">
                             <svg className="w-full h-full" viewBox="0 0 36 36">
-                                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#e5e7eb" strokeWidth="3" />
-                                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#f59e0b" strokeWidth="3" strokeDasharray={`${basicStats.totalReports ? (basicStats.typeCounts.special / basicStats.totalReports) * 100 : 0}, 100`} />
+                                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#e5e7eb" strokeWidth={3} />
+                                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#f59e0b" strokeWidth={3} strokeDasharray={`${basicStats.totalReports ? (basicStats.typeCounts.special / basicStats.totalReports) * 100 : 0}, 100`} />
                             </svg>
                             <div className="absolute inset-0 flex items-center justify-center font-bold text-lg text-yellow-600">{basicStats.typeCounts.special}</div>
                         </div>
@@ -516,6 +516,11 @@ const KeyMetricsView: React.FC<{ reports: Report[], teachers: Teacher[] }> = ({ 
 const EvaluationAnalysisView: React.FC<{ reports: Report[], teachers: Teacher[] }> = ({ reports, teachers }) => {
     const { t } = useLanguage();
     const [subTypeFilter, setSubTypeFilter] = useState<'all' | 'general' | 'brief' | 'extended' | 'subject_specific'>('all');
+    
+    // New states for WhatsApp filtering
+    const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
+    const [selectedLabels, setSelectedLabels] = useState<Set<string>>(new Set());
+
     const teacherMap = useMemo(() => new Map(teachers.map(t => [t.id, t.name])), [teachers]);
 
     const analysis = useMemo(() => {
@@ -590,32 +595,60 @@ const EvaluationAnalysisView: React.FC<{ reports: Report[], teachers: Teacher[] 
         return result.sort((a, b) => a.percentage - b.percentage);
     }, [reports, subTypeFilter, teacherMap]);
 
-    const handleExport = (format: 'txt' | 'pdf' | 'excel' | 'whatsapp') => {
-        if (format === 'whatsapp') {
-            let msg = `*📊 ${t('evaluationElementAnalysis')}*\n`;
-            msg += `نوع التقرير: ${
-                subTypeFilter === 'all' ? 'الكل' : 
-                subTypeFilter === 'general' ? 'عام' :
-                subTypeFilter === 'brief' ? 'مختصر' :
-                subTypeFilter === 'extended' ? 'موسع' : 'حسب المادة'
-            }\n\n`;
+    const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.checked) {
+            setSelectedLabels(new Set(analysis.map(a => a.label)));
+        } else {
+            setSelectedLabels(new Set());
+        }
+    };
 
-            analysis.forEach(item => {
-                msg += `📌 *${item.label}*\n`;
-                msg += `   المتوسط العام: ${item.percentage.toFixed(1)}% (تكرار: ${item.count})\n`;
-                msg += `   🔻 *تفصيل المعلمين (من الأقل للأعلى):*\n`;
-                item.teacherDetails.forEach(t => {
-                    let icon = '🟢';
-                    if (t.percentage <= 50) icon = '🔴';
-                    else if (t.percentage <= 75) icon = '🟡';
-                    else if (t.percentage <= 89) icon = '🔵';
-                    
-                    msg += `   ${icon} ${t.name} (${t.percentage.toFixed(0)}%)\n`;
-                });
-                msg += `\n`;
+    const toggleLabel = (label: string) => {
+        const newSet = new Set(selectedLabels);
+        if (newSet.has(label)) newSet.delete(label);
+        else newSet.add(label);
+        setSelectedLabels(newSet);
+    };
+
+    const handleSendWhatsApp = () => {
+        let msg = `*📊 ${t('evaluationElementAnalysis')}*\n`;
+        msg += `نوع التقرير: ${
+            subTypeFilter === 'all' ? 'الكل' : 
+            subTypeFilter === 'general' ? 'عام' :
+            subTypeFilter === 'brief' ? 'مختصر' :
+            subTypeFilter === 'extended' ? 'موسع' : 'حسب المادة'
+        }\n\n`;
+
+        const itemsToSend = analysis.filter(item => selectedLabels.has(item.label));
+
+        if (itemsToSend.length === 0) {
+            alert('يرجى اختيار عنصر واحد على الأقل.');
+            return;
+        }
+
+        itemsToSend.forEach(item => {
+            msg += `📌 *${item.label}*\n`;
+            msg += `   المتوسط العام: ${item.percentage.toFixed(1)}% (تكرار: ${item.count})\n`;
+            msg += `   🔻 *تفصيل المعلمين (من الأقل للأعلى):*\n`;
+            item.teacherDetails.forEach(t => {
+                let icon = '🟢';
+                if (t.percentage <= 50) icon = '🔴';
+                else if (t.percentage <= 75) icon = '🟡';
+                else if (t.percentage <= 89) icon = '🔵';
+                
+                msg += `   ${icon} ${t.name} (${t.percentage.toFixed(0)}%)\n`;
             });
+            msg += `\n`;
+        });
 
-            window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
+        window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
+        setShowWhatsAppModal(false);
+    };
+
+    const handleExportClick = (format: 'txt' | 'pdf' | 'excel' | 'whatsapp') => {
+        if (format === 'whatsapp') {
+            setSelectedLabels(new Set(analysis.map(a => a.label))); // Default select all
+            setShowWhatsAppModal(true);
         } else {
             // This function from exportUtils already handles excel if format is passed correctly
             exportEvaluationAnalysis(format, analysis, t);
@@ -623,7 +656,49 @@ const EvaluationAnalysisView: React.FC<{ reports: Report[], teachers: Teacher[] 
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 relative">
+            {/* WhatsApp Selection Modal */}
+            {showWhatsAppModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
+                    <div className="bg-white rounded-lg p-6 w-full max-w-lg shadow-2xl flex flex-col max-h-[80vh]">
+                        <h3 className="text-xl font-bold text-primary mb-4 text-center">اختر العناصر للإرسال</h3>
+                        
+                        <div className="flex items-center gap-2 mb-2 p-2 bg-gray-50 rounded border-b">
+                            <input 
+                                type="checkbox" 
+                                id="selectAllAnalysis" 
+                                checked={selectedLabels.size === analysis.length && analysis.length > 0} 
+                                onChange={handleSelectAll} 
+                                className="w-5 h-5 text-primary" 
+                            />
+                            <label htmlFor="selectAllAnalysis" className="font-bold cursor-pointer">تحديد الكل</label>
+                        </div>
+
+                        <div className="flex-grow overflow-y-auto space-y-2 p-2 border rounded mb-4">
+                            {analysis.map((item, idx) => (
+                                <label key={idx} className="flex items-start gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer border-b last:border-0">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={selectedLabels.has(item.label)} 
+                                        onChange={() => toggleLabel(item.label)} 
+                                        className="w-5 h-5 text-primary mt-1" 
+                                    />
+                                    <div>
+                                        <span className="font-semibold block">{item.label}</span>
+                                        <span className="text-xs text-gray-500">المتوسط: {item.percentage.toFixed(1)}%</span>
+                                    </div>
+                                </label>
+                            ))}
+                        </div>
+
+                        <div className="flex gap-3 pt-2">
+                            <button onClick={handleSendWhatsApp} className="flex-1 bg-green-600 text-white py-2 rounded hover:bg-green-700 font-bold">{t('send')}</button>
+                            <button onClick={() => setShowWhatsAppModal(false)} className="flex-1 bg-gray-500 text-white py-2 rounded hover:bg-gray-600">{t('cancel')}</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Filter Buttons */}
             <div className="flex flex-wrap justify-center gap-2 mb-4">
                 {[
@@ -686,7 +761,7 @@ const EvaluationAnalysisView: React.FC<{ reports: Report[], teachers: Teacher[] 
                 )) : <p className="text-center py-8 text-gray-500">لا توجد بيانات كافية للتحليل.</p>}
             </div>
 
-            {analysis.length > 0 && <ExportButtons onExport={handleExport} />}
+            {analysis.length > 0 && <ExportButtons onExport={handleExportClick} />}
         </div>
     );
 };
@@ -982,7 +1057,7 @@ const SyllabusDashboardReport: React.FC<{ reports: SyllabusCoverageReport[], tea
                         {/* Summary Grid */}
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center text-sm mb-4">
                             <div className="bg-blue-50 p-2 rounded flex flex-col justify-center">
-                                <span className="font-bold text-blue-800">{t('meetingsAttended')}</span>
+                                <span className="font-bold text-blue-800">{t('meetingsAttended')}</span >
                                 <span className="text-xl font-bold">{teacher.meetings}</span>
                             </div>
                             <div className="bg-purple-50 p-2 rounded flex flex-col justify-center">
