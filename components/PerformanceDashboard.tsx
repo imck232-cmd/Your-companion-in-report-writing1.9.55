@@ -6,6 +6,9 @@ import { GENERAL_EVALUATION_CRITERIA_TEMPLATE, CLASS_SESSION_BRIEF_TEMPLATE, CLA
 import { exportKeyMetrics, exportEvaluationAnalysis, exportSupervisorySummary as exportSupervisorySummaryUtil, exportMeetingSummary as exportMeetingSummaryUtil } from '../lib/exportUtils';
 import { calculateReportPercentage } from '../lib/exportUtils';
 
+// Declare XLSX locally to avoid type errors if not globally declared in types
+declare const XLSX: any;
+
 interface PerformanceDashboardProps {
   reports: Report[];
   teachers: Teacher[];
@@ -106,7 +109,7 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = (props) => {
 };
 
 
-// --- Key Metrics Tab (Updated with Goal Tracking and Details) ---
+// --- Key Metrics Tab (Updated) ---
 const KeyMetricsView: React.FC<{ reports: Report[], teachers: Teacher[] }> = ({ reports, teachers }) => {
     const { t } = useLanguage();
     
@@ -117,6 +120,17 @@ const KeyMetricsView: React.FC<{ reports: Report[], teachers: Teacher[] }> = ({ 
         tools: 0,
         sources: 0,
         programs: 0
+    });
+
+    // State for WhatsApp Selection Modal
+    const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
+    const [whatsAppSelection, setWhatsAppSelection] = useState({
+        stats: true,
+        goals: true,
+        strategies: true,
+        tools: true,
+        sources: true,
+        programs: true
     });
 
     const teacherMap = useMemo(() => new Map(teachers.map(t => [t.id, t.name])), [teachers]);
@@ -184,7 +198,6 @@ const KeyMetricsView: React.FC<{ reports: Report[], teachers: Teacher[] }> = ({ 
                 sources = (r as ClassSessionEvaluationReport).sources;
                 progs = (r as ClassSessionEvaluationReport).programs;
             }
-            // Add other types if necessary (e.g. SpecialReport usually follows General structure regarding these fields if added)
 
             processField(r, 'strategies', strats);
             processField(r, 'tools', tools);
@@ -199,15 +212,62 @@ const KeyMetricsView: React.FC<{ reports: Report[], teachers: Teacher[] }> = ({ 
 
     }, [reports, teachers, dateRange, teacherMap]);
 
-    const handleExport = (format: 'txt' | 'pdf' | 'excel' | 'whatsapp') => {
-        if (format === 'whatsapp') {
-            // Build a comprehensive message for WhatsApp
-            let msg = `*📊 ${t('keyMetrics')}*\n\n`;
+    // Custom Excel Export for Key Metrics (Detailed)
+    const exportKeyMetricsToExcel = () => {
+        const wb = XLSX.utils.book_new();
+
+        // Sheet 1: General Stats
+        const statsData: any[] = [
+            ['المقياس', 'القيمة'],
+            [t('totalTeachers'), basicStats.totalTeachers],
+            [t('totalReports'), basicStats.totalReports],
+            [t('overallAveragePerformance'), basicStats.overallAverage.toFixed(2) + '%'],
+            ['', ''],
+            ['نوع التقرير', 'العدد'],
+            [t('generalEvaluation'), basicStats.typeCounts.general],
+            [t('classSessionEvaluation'), basicStats.typeCounts.class_session],
+            [t('specialReports'), basicStats.typeCounts.special],
+            ['', ''],
+            ['المجال', 'العدد المحقق', 'العدد المطلوب', 'النسبة'],
+            ['الاستراتيجيات', detailedStats.usageCounts.strategies, goals.strategies, goals.strategies > 0 ? (detailedStats.usageCounts.strategies/goals.strategies*100).toFixed(1)+'%' : '0%'],
+            ['الوسائل', detailedStats.usageCounts.tools, goals.tools, goals.tools > 0 ? (detailedStats.usageCounts.tools/goals.tools*100).toFixed(1)+'%' : '0%'],
+            ['المصادر', detailedStats.usageCounts.sources, goals.sources, goals.sources > 0 ? (detailedStats.usageCounts.sources/goals.sources*100).toFixed(1)+'%' : '0%'],
+            ['البرامج', detailedStats.usageCounts.programs, goals.programs, goals.programs > 0 ? (detailedStats.usageCounts.programs/goals.programs*100).toFixed(1)+'%' : '0%'],
+        ];
+        const wsStats = XLSX.utils.aoa_to_sheet(statsData);
+        XLSX.utils.book_append_sheet(wb, wsStats, "الإحصائيات العامة");
+
+        // Helper for details sheet
+        const addDetailSheet = (title: string, dataMap: Record<string, Record<string, number>>) => {
+            const rows = [['العنصر', 'المعلم', 'عدد مرات الاستخدام']];
+            Object.entries(dataMap).forEach(([itemName, teachers]) => {
+                Object.entries(teachers).forEach(([teacherName, count]) => {
+                    rows.push([itemName, teacherName, count]);
+                });
+            });
+            const ws = XLSX.utils.aoa_to_sheet(rows);
+            XLSX.utils.book_append_sheet(wb, ws, title);
+        };
+
+        addDetailSheet('تفاصيل الاستراتيجيات', detailedStats.usageDetails.strategies);
+        addDetailSheet('تفاصيل الوسائل', detailedStats.usageDetails.tools);
+        addDetailSheet('تفاصيل المصادر', detailedStats.usageDetails.sources);
+        addDetailSheet('تفاصيل البرامج', detailedStats.usageDetails.programs);
+
+        XLSX.writeFile(wb, `key_metrics_${new Date().toISOString().split('T')[0]}.xlsx`);
+    };
+
+    const handleSendWhatsApp = () => {
+        let msg = `*📊 ${t('keyMetrics')}*\n\n`;
+        
+        if (whatsAppSelection.stats) {
             msg += `👥 ${t('totalTeachers')}: ${basicStats.totalTeachers}\n`;
             msg += `📝 ${t('totalReports')}: ${basicStats.totalReports}\n`;
             msg += `📈 ${t('overallAveragePerformance')}: ${basicStats.overallAverage.toFixed(1)}%\n`;
-            
-            // Goals
+            msg += `------------------\n`;
+        }
+        
+        if (whatsAppSelection.goals) {
             msg += `\n*🎯 تحليل الأهداف:*\n`;
             const goalKeys = [
                 { k: 'strategies', l: 'الاستراتيجيات' }, 
@@ -222,30 +282,41 @@ const KeyMetricsView: React.FC<{ reports: Report[], teachers: Teacher[] }> = ({ 
                 const pct = goal > 0 ? (count / goal) * 100 : 0;
                 msg += `🔹 *${l}:* ${count} / ${goal} (${pct.toFixed(1)}%)\n`;
             });
+            msg += `------------------\n`;
+        }
 
-            // Detailed Breakdown
-            const generateDetailSection = (title: string, dataMap: Record<string, Record<string, number>>) => {
-                let sectionMsg = `\n*📌 ${title}:*\n`;
-                const items = Object.entries(dataMap);
-                if (items.length === 0) return sectionMsg + "   (لا توجد بيانات)\n";
-                
-                items.forEach(([itemName, teacherCounts]) => {
-                    sectionMsg += `🔸 *${itemName}:*\n`;
-                    Object.entries(teacherCounts)
-                        .sort(([, a], [, b]) => b - a) // Sort desc
-                        .forEach(([name, count]) => {
-                            sectionMsg += `   👤 ${name} (🔢 ${count})\n`;
-                        });
-                });
-                return sectionMsg;
-            };
+        // Detailed Breakdown
+        const generateDetailSection = (title: string, dataMap: Record<string, Record<string, number>>) => {
+            let sectionMsg = `\n*📌 ${title}:*\n`;
+            const items = Object.entries(dataMap);
+            if (items.length === 0) return sectionMsg + "   (لا توجد بيانات)\n";
+            
+            items.forEach(([itemName, teacherCounts]) => {
+                sectionMsg += `🔸 *${itemName}:*\n`;
+                Object.entries(teacherCounts)
+                    .sort(([, a], [, b]) => b - a) // Sort desc
+                    .forEach(([name, count]) => {
+                        // Modified format: Removed number icon, just Name (Count)
+                        sectionMsg += `   👤 ${name} (${count})\n`;
+                    });
+            });
+            return sectionMsg;
+        };
 
-            msg += generateDetailSection('الاستراتيجيات المستخدمة', detailedStats.usageDetails.strategies);
-            msg += generateDetailSection('الوسائل المستخدمة', detailedStats.usageDetails.tools);
-            msg += generateDetailSection('المصادر المستخدمة', detailedStats.usageDetails.sources);
-            msg += generateDetailSection('البرامج المنفذة', detailedStats.usageDetails.programs);
+        if (whatsAppSelection.strategies) msg += generateDetailSection('الاستراتيجيات المستخدمة', detailedStats.usageDetails.strategies);
+        if (whatsAppSelection.tools) msg += generateDetailSection('الوسائل المستخدمة', detailedStats.usageDetails.tools);
+        if (whatsAppSelection.sources) msg += generateDetailSection('المصادر المستخدمة', detailedStats.usageDetails.sources);
+        if (whatsAppSelection.programs) msg += generateDetailSection('البرامج المنفذة', detailedStats.usageDetails.programs);
 
-            window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
+        window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
+        setShowWhatsAppModal(false);
+    };
+
+    const handleExportClick = (format: 'txt' | 'pdf' | 'excel' | 'whatsapp') => {
+        if (format === 'whatsapp') {
+            setShowWhatsAppModal(true);
+        } else if (format === 'excel') {
+            exportKeyMetricsToExcel();
         } else {
             // Default export for other formats
             exportKeyMetrics(format, basicStats, t);
@@ -265,7 +336,7 @@ const KeyMetricsView: React.FC<{ reports: Report[], teachers: Teacher[] }> = ({ 
                         // Sort teachers by count descending
                         const sortedTeachers = Object.entries(teacherCounts)
                             .sort(([, a], [, b]) => b - a)
-                            .map(([name, count]) => `👤 ${name} (🔢 ${count})`)
+                            .map(([name, count]) => `👤 ${name} (${count})`) // Removed 🔢 icon
                             .join(' ،  ');
                         
                         return (
@@ -281,7 +352,46 @@ const KeyMetricsView: React.FC<{ reports: Report[], teachers: Teacher[] }> = ({ 
     };
 
     return (
-        <div className="space-y-8">
+        <div className="space-y-8 relative">
+            {/* WhatsApp Filter Modal */}
+            {showWhatsAppModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
+                    <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-2xl">
+                        <h3 className="text-xl font-bold text-primary mb-4 text-center">اختر البيانات للإرسال</h3>
+                        <div className="space-y-3 mb-6">
+                            <label className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded border cursor-pointer">
+                                <input type="checkbox" checked={whatsAppSelection.stats} onChange={e => setWhatsAppSelection({...whatsAppSelection, stats: e.target.checked})} className="w-5 h-5 text-primary" />
+                                <span className="font-semibold">الإحصائيات العامة</span>
+                            </label>
+                            <label className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded border cursor-pointer">
+                                <input type="checkbox" checked={whatsAppSelection.goals} onChange={e => setWhatsAppSelection({...whatsAppSelection, goals: e.target.checked})} className="w-5 h-5 text-primary" />
+                                <span className="font-semibold">تحليل الأهداف (النسب)</span>
+                            </label>
+                            <label className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded border cursor-pointer">
+                                <input type="checkbox" checked={whatsAppSelection.strategies} onChange={e => setWhatsAppSelection({...whatsAppSelection, strategies: e.target.checked})} className="w-5 h-5 text-primary" />
+                                <span className="font-semibold">تفاصيل الاستراتيجيات</span>
+                            </label>
+                            <label className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded border cursor-pointer">
+                                <input type="checkbox" checked={whatsAppSelection.tools} onChange={e => setWhatsAppSelection({...whatsAppSelection, tools: e.target.checked})} className="w-5 h-5 text-primary" />
+                                <span className="font-semibold">تفاصيل الوسائل</span>
+                            </label>
+                            <label className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded border cursor-pointer">
+                                <input type="checkbox" checked={whatsAppSelection.sources} onChange={e => setWhatsAppSelection({...whatsAppSelection, sources: e.target.checked})} className="w-5 h-5 text-primary" />
+                                <span className="font-semibold">تفاصيل المصادر</span>
+                            </label>
+                            <label className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded border cursor-pointer">
+                                <input type="checkbox" checked={whatsAppSelection.programs} onChange={e => setWhatsAppSelection({...whatsAppSelection, programs: e.target.checked})} className="w-5 h-5 text-primary" />
+                                <span className="font-semibold">تفاصيل البرامج</span>
+                            </label>
+                        </div>
+                        <div className="flex gap-3">
+                            <button onClick={handleSendWhatsApp} className="flex-1 bg-green-600 text-white py-2 rounded hover:bg-green-700 font-bold">{t('send')}</button>
+                            <button onClick={() => setShowWhatsAppModal(false)} className="flex-1 bg-gray-500 text-white py-2 rounded hover:bg-gray-600">{t('cancel')}</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* 1. Existing Basic Stats */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="bg-blue-50 p-6 rounded-lg text-center border border-blue-200 shadow-sm">
@@ -397,7 +507,7 @@ const KeyMetricsView: React.FC<{ reports: Report[], teachers: Teacher[] }> = ({ 
                 </div>
             </div>
             
-            <ExportButtons onExport={handleExport} />
+            <ExportButtons onExport={handleExportClick} />
         </div>
     )
 };
@@ -507,6 +617,7 @@ const EvaluationAnalysisView: React.FC<{ reports: Report[], teachers: Teacher[] 
 
             window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
         } else {
+            // This function from exportUtils already handles excel if format is passed correctly
             exportEvaluationAnalysis(format, analysis, t);
         }
     };
@@ -609,6 +720,21 @@ const SupervisoryReportsView: React.FC<PerformanceDashboardProps> = (props) => {
             `📋 ${t('visitsConductedBy')}:`, 
             ...details
         ];
+        
+        if (format === 'excel') {
+             const wb = XLSX.utils.book_new();
+             const ws = XLSX.utils.json_to_sheet([
+                 { 'المقياس': 'إجمالي الزيارات', 'القيمة': total },
+                 { 'المقياس': 'تمت', 'القيمة': completed },
+                 { 'المقياس': 'قيد التنفيذ', 'القيمة': inProgress },
+                 { 'المقياس': 'لم تتم', 'القيمة': notCompleted },
+                 ...Object.entries(visitsByTeacher).map(([teacher, count]) => ({ 'المقياس': `زيارات ${teacher}`, 'القيمة': count }))
+             ]);
+             XLSX.utils.book_append_sheet(wb, ws, "الزيارات التبادلية");
+             XLSX.writeFile(wb, "peer_visits.xlsx");
+             return;
+        }
+
         exportSupervisorySummaryUtil({ format, title: t('peerVisitsReport'), data, t });
     };
 
@@ -750,6 +876,25 @@ const SyllabusDashboardReport: React.FC<{ reports: SyllabusCoverageReport[], tea
     }, [aggregatedData, filterMetric]);
 
     const handleExport = (format: 'txt' | 'pdf' | 'excel' | 'whatsapp') => {
+        if (format === 'excel') {
+            const wb = XLSX.utils.book_new();
+            const dataForExcel = displayData.map((t: any) => ({
+                'المعلم': t.name,
+                'عدد التقارير': t.reportsCount,
+                'عدد الفروع المتأخرة': t.statusBehind,
+                'عدد الفروع المتقدمة': t.statusAhead,
+                'اللقاءات': t.meetings,
+                'تصحيح الدفاتر %': t.notebookAvg,
+                'دفتر التحضير %': t.prepAvg,
+                'الاستراتيجيات': t.strategiesList,
+                'الوسائل': t.toolsList
+            }));
+            const ws = XLSX.utils.json_to_sheet(dataForExcel);
+            XLSX.utils.book_append_sheet(wb, ws, "تقرير السير في المنهج");
+            XLSX.writeFile(wb, `syllabus_dashboard_${new Date().toISOString().split('T')[0]}.xlsx`);
+            return;
+        }
+
         const title = t('syllabusCoverageReport') + ` (${startDate || 'الكل'} - ${endDate || 'الكل'})`;
         const dataLines: string[] = [];
         
@@ -917,6 +1062,19 @@ const MeetingOutcomesReport: React.FC<{ meetings: Meeting[] }> = ({ meetings }) 
 
     const handleExport = (format: 'txt' | 'pdf' | 'excel' | 'whatsapp') => {
         if (!stats) return;
+        if (format === 'excel') {
+             const wb = XLSX.utils.book_new();
+             const ws = XLSX.utils.json_to_sheet([
+                 { 'المقياس': 'إجمالي المخرجات', 'القيمة': stats.total },
+                 { 'المقياس': 'تم التنفيذ', 'القيمة': stats.executed },
+                 { 'المقياس': 'قيد التنفيذ', 'القيمة': stats.inProgress },
+                 { 'المقياس': 'لم يتم', 'القيمة': stats.notExecuted },
+                 { 'المقياس': 'نسبة الإنجاز', 'القيمة': stats.percentages.executed.toFixed(1) + '%' }
+             ]);
+             XLSX.utils.book_append_sheet(wb, ws, "مخرجات الاجتماعات");
+             XLSX.writeFile(wb, "meeting_outcomes.xlsx");
+             return;
+        }
         exportMeetingSummaryUtil({ format, stats, dateRange, t });
     };
 
@@ -991,6 +1149,14 @@ const PeerVisitsReport: React.FC<{ peerVisits: PeerVisit[] }> = ({ peerVisits })
 const DeliveryRecordsReport: React.FC<{ deliverySheets: DeliverySheet[], teachers: Teacher[] }> = ({ deliverySheets, teachers }) => {
     const { t } = useLanguage();
     const handleExport = (format: 'txt' | 'pdf' | 'excel' | 'whatsapp', title: string, data: any[]) => {
+        if (format === 'excel') {
+             const wb = XLSX.utils.book_new();
+             const sheetData = data.filter(d => d.startsWith('🔹') || d.startsWith('📦') || d.startsWith('⚠️')).map(d => ({ 'البيان': d }));
+             const ws = XLSX.utils.json_to_sheet(sheetData);
+             XLSX.utils.book_append_sheet(wb, ws, title);
+             XLSX.writeFile(wb, `${title}.xlsx`);
+             return;
+        }
         exportSupervisorySummaryUtil({ format, title, data, t });
     };
 
