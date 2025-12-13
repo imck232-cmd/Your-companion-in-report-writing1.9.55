@@ -50,17 +50,62 @@ const WhatsAppBulkModal: React.FC<{
         exportSyllabusCoverage('whatsapp', report, teacherName, t);
     };
 
+    const handleSendCombined = () => {
+        let content = `*📊 ملخص السير في المنهج (مجمع)*\n`;
+        content += `*📅 التاريخ:* ${new Date().toLocaleDateString()}\n`;
+        content += `*عدد التقارير:* ${selectedReports.length}\n\n`;
+        content += `━━━━━━━━━━━━━━━━\n`;
+
+        selectedReports.forEach((report, idx) => {
+            const teacherName = teacherMap.get(report.teacherId) || 'غير معروف';
+            const status = getReportStatus(report);
+            let statusText = 'مطابق';
+            let icon = '🟢';
+            if (status === 'ahead') { statusText = 'متقدم'; icon = '🔵'; }
+            if (status === 'behind') { statusText = 'متأخر'; icon = '🔴'; }
+
+            content += `*${idx + 1}. ${teacherName}* | ${report.subject}\n`;
+            content += `   الصف: ${report.grade}\n`;
+            content += `   ${icon} الحالة: ${statusText}\n`;
+            
+            if (report.branches && report.branches.length > 0) {
+                // Find main info
+                const diffs = report.branches.filter(b => b.lessonDifference).map(b => `${b.branchName}: ${b.lessonDifference} درس`).join('، ');
+                if (diffs) content += `   ⚠️ الفارق: ${diffs}\n`;
+                const lastLessons = report.branches.map(b => `${b.branchName}: ${b.lastLesson}`).join(' | ');
+                content += `   📝 واصل لـ: ${lastLessons}\n`;
+            }
+            content += `────────────────\n`;
+        });
+
+        const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(content)}`;
+        window.open(whatsappUrl, '_blank');
+    };
+
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
-            <div className="bg-white rounded-lg p-6 w-full max-w-2xl shadow-2xl">
+            <div className="bg-white rounded-lg p-6 w-full max-w-2xl shadow-2xl flex flex-col max-h-[90vh]">
                 <h3 className="text-xl font-bold text-primary mb-4 border-b pb-2">إرسال التقارير عبر واتساب</h3>
-                <p className="mb-4 text-gray-600 text-sm">تم تحديد {selectedReports.length} تقرير للإرسال. يرجى اختيار المعلم لإرسال تقريره:</p>
                 
-                <div className="max-h-[60vh] overflow-y-auto space-y-2">
+                <div className="bg-blue-50 p-4 rounded-lg mb-4 flex flex-col gap-2">
+                    <p className="text-sm text-blue-800 font-semibold">
+                        تم تحديد {selectedReports.length} تقرير للإرسال.
+                    </p>
+                    <button 
+                        onClick={handleSendCombined}
+                        className="w-full py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-bold shadow-md flex items-center justify-center gap-2 transition-transform transform hover:scale-[1.02]"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.894 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.886-.001 2.267.651 4.383 1.905 6.25l-.275 1.002 1.03 1.018z"/></svg>
+                        إرسال ملخص مجمع للجميع ({selectedReports.length})
+                    </button>
+                </div>
+
+                <p className="mb-2 text-gray-600 text-sm font-semibold">أو إرسال تقارير فردية:</p>
+                <div className="flex-grow overflow-y-auto space-y-2 border rounded p-2 bg-gray-50">
                     {selectedReports.map((report, idx) => {
                         const teacherName = teacherMap.get(report.teacherId) || 'غير معروف';
                         return (
-                            <div key={report.id} className="flex justify-between items-center p-3 border rounded hover:bg-gray-50">
+                            <div key={report.id} className="flex justify-between items-center p-3 border rounded bg-white hover:bg-gray-50">
                                 <div>
                                     <span className="font-bold text-gray-800">{idx + 1}. {teacherName}</span>
                                     <span className="text-xs text-gray-500 block">{report.subject} - {report.grade}</span>
@@ -77,7 +122,7 @@ const WhatsAppBulkModal: React.FC<{
                     })}
                 </div>
                 
-                <div className="mt-6 flex justify-end">
+                <div className="mt-4 pt-2 border-t flex justify-end">
                     <button onClick={onClose} className="px-6 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">إغلاق</button>
                 </div>
             </div>
@@ -94,7 +139,6 @@ const ReportEditor: React.FC<{
     isCollapsed: boolean;
     onToggleCollapse: () => void;
 }> = ({ report, onUpdate, onDelete, allTeachers, allReports, isCollapsed, onToggleCollapse }) => {
-    // ... [Original ReportEditor Code remains exactly the same] ...
     const { t } = useLanguage();
     const [otherSubject, setOtherSubject] = useState(SUBJECTS.includes(report.subject) ? '' : report.subject);
     const [otherGrade, setOtherGrade] = useState(GRADES.includes(report.grade) ? '' : report.grade);
@@ -826,7 +870,10 @@ const SyllabusCoverageManager: React.FC<SyllabusCoverageManagerProps> = ({
         <div className="space-y-6">
             {showWhatsAppModal && (
                 <WhatsAppBulkModal 
-                    selectedReports={reports.filter(r => selectedReportIds.has(r.id))}
+                    selectedReports={selectedReportIds.size > 0 
+                        ? reports.filter(r => selectedReportIds.has(r.id))
+                        : filteredReports
+                    }
                     allTeachers={allTeachers}
                     onClose={() => setShowWhatsAppModal(false)}
                     t={t}
@@ -957,8 +1004,8 @@ const SyllabusCoverageManager: React.FC<SyllabusCoverageManagerProps> = ({
                             </button>
                             <button 
                                 onClick={() => {
-                                    if (selectedReportIds.size === 0) {
-                                        alert('يرجى تحديد تقرير واحد على الأقل.');
+                                    if (filteredReports.length === 0) {
+                                        alert('لا توجد تقارير لإرسالها.');
                                         return;
                                     }
                                     setShowWhatsAppModal(true);
@@ -966,7 +1013,7 @@ const SyllabusCoverageManager: React.FC<SyllabusCoverageManagerProps> = ({
                                 className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 flex items-center gap-2"
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" /></svg>
-                                إرسال واتساب
+                                إرسال واتساب ({selectedReportIds.size > 0 ? 'محدد' : 'الكل'})
                             </button>
                         </div>
                     </div>
