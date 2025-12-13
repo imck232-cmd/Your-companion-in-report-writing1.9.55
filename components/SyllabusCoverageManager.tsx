@@ -252,7 +252,7 @@ const ReportEditor: React.FC<{
         setShowAIImport(false);
     };
 
-    // Explicitly listing all fields for AI to look for
+    // Explicitly listing all fields for AI to look for with Arabic descriptions to ensure accurate mapping
     const formStructureForAI = {
         ...report,
         schoolName: 'اسم المدرسة',
@@ -260,18 +260,20 @@ const ReportEditor: React.FC<{
         semester: 'الفصل الدراسي',
         subject: 'المادة',
         grade: 'الصف',
-        branches: [{ branchName: 'اسم الفرع', status: 'ahead/behind/on_track', lastLesson: 'عنوان الدرس', lessonDifference: 'عدد الدروس' }],
-        meetingsAttended: '',
-        notebookCorrection: '',
-        preparationBook: '',
-        questionsGlossary: '',
-        programsImplemented: '',
-        strategiesImplemented: '',
-        toolsUsed: '',
-        sourcesUsed: '',
-        tasksDone: '',
-        testsDelivered: '',
-        peerVisitsDone: ''
+        teacherId: 'اسم المعلم', // AI might return name, we can match it later if id isn't direct
+        date: 'التاريخ',
+        branches: [{ branchName: 'اسم الفرع (مثل: نحو، أدب، جبر، هندسة)', status: 'ahead/behind/on_track (حالة السير)', lastLesson: 'عنوان الدرس الواصل إليه', lessonDifference: 'عدد الدروس (الفارق)' }],
+        meetingsAttended: 'عدد اللقاءات التي حضرها',
+        notebookCorrection: 'نسبة تصحيح الدفاتر',
+        preparationBook: 'نسبة إعداد دفتر التحضير',
+        questionsGlossary: 'نسبة مسرد الأسئلة',
+        programsImplemented: 'البرامج المنفذة',
+        strategiesImplemented: 'الاستراتيجيات المنفذة',
+        toolsUsed: 'الوسائل المستخدمة',
+        sourcesUsed: 'المصادر المستخدمة',
+        tasksDone: 'التكاليف المنجزة',
+        testsDelivered: 'الاختبارات المسلمة',
+        peerVisitsDone: 'الزيارات التبادلية'
     };
 
     const reportTitle = t('reportTitle')
@@ -320,6 +322,41 @@ const ReportEditor: React.FC<{
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                     </button>
                 </div>
+            </div>
+
+            {/* --- TOP IMPORT SECTION (Moved Here) --- */}
+            <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-200 mb-6 shadow-inner">
+                <div className="flex flex-wrap items-center gap-3">
+                     {/* Excel Button (Offline) */}
+                    <label className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-700 cursor-pointer transition-colors shadow-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <span>تعبئة من ملف إكسل (بدون نت)</span>
+                        <input type="file" accept=".xlsx" onChange={handleImportExcel} className="hidden" ref={fileInputRef} />
+                    </label>
+
+                    {/* AI Button */}
+                    <button onClick={() => setShowAIImport(!showAIImport)} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition-colors shadow-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        <span>ألصق نصاً أو حمل ملف (PDF, TXT)</span>
+                    </button>
+                </div>
+
+                {showAIImport && (
+                    <div className="mt-4 border-t border-indigo-200 pt-4">
+                        <p className="text-sm text-indigo-800 mb-2 font-semibold">
+                            ألصق النص أدناه أو حمل ملف (PDF, TXT, Excel) ثم اضغط "تعبئة الحقول تلقائياً":
+                        </p>
+                        <ImportDataSection 
+                            onDataParsed={(data) => handleDataParsed(data as any)}
+                            formStructure={formStructureForAI}
+                            customButtonLabel="تعبئة الحقول تلقائياً"
+                        />
+                    </div>
+                )}
             </div>
             
             {/* Header Data */}
@@ -462,39 +499,13 @@ const ReportEditor: React.FC<{
                 <CustomizableInputSection title={t('peerVisitsDone')} value={report.peerVisitsDone || ''} onChange={v => handleFieldUpdate('peerVisitsDone', v)} defaultItems={[]} localStorageKey="customPeerVisits" isList={true} />
             </div>
 
-             <div className="border-t pt-4">
-                <button onClick={() => setShowAIImport(!showAIImport)} className="w-full px-6 py-2 bg-indigo-100 text-indigo-700 font-bold rounded-lg hover:bg-indigo-200 transition-colors mb-2">
-                    {t('pasteOrUpload')} (استيراد ذكي للنص)
-                </button>
-                {showAIImport && (
-                    <ImportDataSection 
-                        onDataParsed={(data) => handleDataParsed(data as any)}
-                        formStructure={formStructureForAI}
-                    />
-                )}
-            </div>
-
              <div className="flex flex-wrap justify-center gap-3 pt-4 border-t">
                 <button onClick={handleSave} className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all transform hover:scale-105" disabled={isSaving}>
                     {isSaving ? `${t('save')}...` : t('saveWork')}
                 </button>
                 <button onClick={() => exportSyllabusCoverage('txt', report, teacherName, t)} className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-800">{t('exportTxt')}</button>
                 <button onClick={() => exportSyllabusCoverage('pdf', report, teacherName, t)} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">{t('exportPdf')}</button>
-                
-                <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-lg">
-                    <button onClick={() => exportSyllabusCoverage('excel', report, teacherName, t)} className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">{t('exportExcel')}</button>
-                    <label className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 cursor-pointer">
-                        {t('fillFromExcel')}
-                        <input 
-                            type="file" 
-                            accept=".xlsx" 
-                            onChange={handleImportExcel} 
-                            className="hidden" 
-                            ref={fileInputRef}
-                        />
-                    </label>
-                </div>
-
+                <button onClick={() => exportSyllabusCoverage('excel', report, teacherName, t)} className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">{t('exportExcel')}</button>
                 <button onClick={() => exportSyllabusCoverage('whatsapp', report, teacherName, t)} className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600">{t('sendToWhatsApp')}</button>
             </div>
         </div>

@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useLanguage } from '../i18n/LanguageContext';
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
@@ -8,9 +9,10 @@ declare const XLSX: any;
 interface ImportDataSectionProps {
     onDataParsed: (data: Partial<Report>) => void;
     formStructure: Partial<Report>;
+    customButtonLabel?: string; // New prop for custom label
 }
 
-const ImportDataSection: React.FC<ImportDataSectionProps> = ({ onDataParsed, formStructure }) => {
+const ImportDataSection: React.FC<ImportDataSectionProps> = ({ onDataParsed, formStructure, customButtonLabel }) => {
     const { t } = useLanguage();
     const [text, setText] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -113,7 +115,7 @@ const ImportDataSection: React.FC<ImportDataSectionProps> = ({ onDataParsed, for
                 disabled={isLoading}
                 className="w-full px-6 py-3 bg-indigo-500 text-white font-bold rounded-lg hover:bg-indigo-600 disabled:bg-indigo-300 transition-colors"
             >
-                {isLoading ? t('processingImport') : t('fillFields')}
+                {isLoading ? t('processingImport') : (customButtonLabel || t('fillFields'))}
             </button>
             {error && <p className="text-red-600 text-center">{error}</p>}
         </div>

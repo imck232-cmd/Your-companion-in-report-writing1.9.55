@@ -229,10 +229,10 @@ const KeyMetricsView: React.FC<{ reports: Report[], teachers: Teacher[] }> = ({ 
             [t('specialReports'), basicStats.typeCounts.special],
             ['', ''],
             ['المجال', 'العدد المحقق', 'العدد المطلوب', 'النسبة'],
-            ['الاستراتيجيات', detailedStats.usageCounts.strategies, goals.strategies, goals.strategies > 0 ? (detailedStats.usageCounts.strategies/goals.strategies*100).toFixed(1)+'%' : '0%'],
-            ['الوسائل', detailedStats.usageCounts.tools, goals.tools, goals.tools > 0 ? (detailedStats.usageCounts.tools/goals.tools*100).toFixed(1)+'%' : '0%'],
-            ['المصادر', detailedStats.usageCounts.sources, goals.sources, goals.sources > 0 ? (detailedStats.usageCounts.sources/goals.sources*100).toFixed(1)+'%' : '0%'],
-            ['البرامج', detailedStats.usageCounts.programs, goals.programs, goals.programs > 0 ? (detailedStats.usageCounts.programs/goals.programs*100).toFixed(1)+'%' : '0%'],
+            ['الاستراتيجيات', detailedStats.usageCounts.strategies, goals.strategies, goals.strategies > 0 ? (detailedStats.usageCounts.strategies/goals.strategies*100).toFixed(1)+'%' : '0%'] as any[],
+            ['الوسائل', detailedStats.usageCounts.tools, goals.tools, goals.tools > 0 ? (detailedStats.usageCounts.tools/goals.tools*100).toFixed(1)+'%' : '0%'] as any[],
+            ['المصادر', detailedStats.usageCounts.sources, goals.sources, goals.sources > 0 ? (detailedStats.usageCounts.sources/goals.sources*100).toFixed(1)+'%' : '0%'] as any[],
+            ['البرامج', detailedStats.usageCounts.programs, goals.programs, goals.programs > 0 ? (detailedStats.usageCounts.programs/goals.programs*100).toFixed(1)+'%' : '0%'] as any[],
         ];
         const wsStats = XLSX.utils.aoa_to_sheet(statsData);
         XLSX.utils.book_append_sheet(wb, wsStats, "الإحصائيات العامة");
