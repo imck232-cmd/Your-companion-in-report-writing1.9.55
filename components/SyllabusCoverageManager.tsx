@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { SyllabusCoverageReport, SyllabusBranchProgress, Teacher } from '../types';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -247,26 +247,79 @@ const ReportEditor: React.FC<{
         setTimeout(() => setIsSaving(false), 1500);
     };
 
-    const handleDataParsed = (data: Partial<SyllabusCoverageReport>) => {
-        onUpdate({ ...report, ...data });
+    const handleDataParsed = (data: any) => {
+        // IMPORTANT: Extract ID to prevent overwriting the existing report's ID
+        const { id, branches, ...otherData } = data;
+        
+        // --- 1. Resolve Teacher Name to ID ---
+        let resolvedTeacherId = report.teacherId;
+        // Check if AI returned a teacherId (often it returns the name here per prompt instruction)
+        const incomingTeacherIdentifier = otherData.teacherId;
+        
+        if (incomingTeacherIdentifier) {
+            // Fuzzy search for teacher name
+            const nameToSearch = String(incomingTeacherIdentifier).trim();
+            const found = allTeachers.find(t => t.name.includes(nameToSearch) || nameToSearch.includes(t.name));
+            if (found) {
+                resolvedTeacherId = found.id;
+            } else if (allTeachers.find(t => t.id === incomingTeacherIdentifier)) {
+                // If it happened to be a valid ID
+                resolvedTeacherId = incomingTeacherIdentifier;
+            }
+        }
+
+        // --- 2. Sanitize Percentages (Remove % and text) ---
+        const sanitizeNumberString = (val: any) => {
+            if (!val) return '';
+            // Remove everything except digits
+            return String(val).replace(/[^0-9]/g, '');
+        };
+
+        if (otherData.notebookCorrection) otherData.notebookCorrection = sanitizeNumberString(otherData.notebookCorrection);
+        if (otherData.preparationBook) otherData.preparationBook = sanitizeNumberString(otherData.preparationBook);
+        if (otherData.questionsGlossary) otherData.questionsGlossary = sanitizeNumberString(otherData.questionsGlossary);
+
+        // --- 3. Sanitize Grade (Remove 'الصف') ---
+        if (otherData.grade) {
+            // Remove 'الصف' prefix if present to match dropdown values like "الأول"
+            otherData.grade = String(otherData.grade).replace('الصف', '').trim();
+        }
+
+        // --- 4. Merge branches safely ---
+        let updatedBranches = report.branches;
+        if (branches && Array.isArray(branches) && branches.length > 0) {
+            updatedBranches = branches.map((b: any) => ({
+                branchName: b.branchName || '',
+                status: ['ahead', 'on_track', 'behind', 'not_set'].includes(b.status) ? b.status : 'not_set',
+                lastLesson: b.lastLesson || '',
+                lessonDifference: b.lessonDifference || '',
+                percentage: b.status === 'on_track' || b.status === 'ahead' ? 100 : 0
+            }));
+        }
+
+        onUpdate({ 
+            ...report, 
+            ...otherData, 
+            teacherId: resolvedTeacherId, 
+            branches: updatedBranches 
+        });
         setShowAIImport(false);
     };
 
-    // Explicitly listing all fields for AI to look for with Arabic descriptions to ensure accurate mapping
+    // Improved prompt structure to guide AI better
     const formStructureForAI = {
-        ...report,
-        schoolName: 'اسم المدرسة',
-        academicYear: 'العام الدراسي',
-        semester: 'الفصل الدراسي',
-        subject: 'المادة',
-        grade: 'الصف',
-        teacherId: 'اسم المعلم', // AI might return name, we can match it later if id isn't direct
-        date: 'التاريخ',
-        branches: [{ branchName: 'اسم الفرع (مثل: نحو، أدب، جبر، هندسة)', status: 'ahead/behind/on_track (حالة السير)', lastLesson: 'عنوان الدرس الواصل إليه', lessonDifference: 'عدد الدروس (الفارق)' }],
-        meetingsAttended: 'عدد اللقاءات التي حضرها',
-        notebookCorrection: 'نسبة تصحيح الدفاتر',
-        preparationBook: 'نسبة إعداد دفتر التحضير',
-        questionsGlossary: 'نسبة مسرد الأسئلة',
+        schoolName: report.schoolName || 'اسم المدرسة',
+        academicYear: report.academicYear || 'العام الدراسي (مثل: 2024-2025)',
+        semester: report.semester || 'الفصل الدراسي',
+        subject: report.subject || 'المادة',
+        grade: report.grade || 'الصف (مثال: الأول، الثاني...)',
+        teacherId: 'اسم المعلم', // Hint changed to explicitly ask for Name
+        date: 'التاريخ (YYYY-MM-DD)',
+        branches: [{ branchName: 'اسم الفرع (مثل: نحو، أدب...)', status: 'ahead/behind/on_track', lastLesson: 'عنوان الدرس', lessonDifference: 'عدد الدروس' }],
+        meetingsAttended: 'عدد اللقاءات',
+        notebookCorrection: 'نسبة تصحيح الدفاتر (رقم فقط)',
+        preparationBook: 'نسبة إعداد دفتر التحضير (رقم فقط)',
+        questionsGlossary: 'نسبة مسرد الأسئلة (رقم فقط)',
         programsImplemented: 'البرامج المنفذة',
         strategiesImplemented: 'الاستراتيجيات المنفذة',
         toolsUsed: 'الوسائل المستخدمة',
@@ -512,57 +565,70 @@ const ReportEditor: React.FC<{
     );
 };
 
-const SyllabusCoverageManager: React.FC<SyllabusCoverageManagerProps> = ({ reports, setReports, school, academicYear, semester, allTeachers }) => {
+const SyllabusCoverageManager: React.FC<SyllabusCoverageManagerProps> = ({
+    reports,
+    setReports,
+    school,
+    academicYear,
+    semester,
+    allTeachers,
+}) => {
     const { t } = useLanguage();
-    const [collapsedReportIds, setCollapsedReportIds] = useState<string[]>([]);
+    const [collapsedIds, setCollapsedIds] = useState<string[]>([]);
 
-    const handleAddNewReport = () => {
+    useEffect(() => {
+        setCollapsedIds(reports.map(r => r.id));
+    }, [reports.length]); 
+
+    const handleAddReport = () => {
         const newReport: SyllabusCoverageReport = {
             id: `scr-${Date.now()}`,
             schoolName: school,
-            academicYear,
-            semester,
+            academicYear: academicYear,
+            semester: semester,
+            teacherId: '',
             subject: '',
             grade: '',
-            branches: [],
-            teacherId: '',
-            date: new Date().toISOString().split('T')[0],
             branch: 'main',
+            date: new Date().toISOString().split('T')[0],
+            branches: [],
         };
         setReports(prev => [newReport, ...prev]);
     };
 
-    const handleUpdateReport = (updatedReport: SyllabusCoverageReport) => {
-        setReports(prev => prev.map(r => r.id === updatedReport.id ? updatedReport : r));
+    const handleUpdateReport = (updated: SyllabusCoverageReport) => {
+        setReports(prev => prev.map(r => r.id === updated.id ? updated : r));
     };
 
-    const handleDeleteReport = (reportId: string) => {
+    const handleDeleteReport = (id: string) => {
         if(window.confirm(t('confirmDelete'))) {
-            setReports(prev => prev.filter(r => r.id !== reportId));
+            setReports(prev => prev.filter(r => r.id !== id));
         }
     };
 
-    const toggleCollapse = (reportId: string) => {
-        setCollapsedReportIds(prev => prev.includes(reportId) ? prev.filter(id => id !== reportId) : [...prev, reportId]);
+    const toggleCollapse = (id: string) => {
+        setCollapsedIds(prev => prev.includes(id) ? prev.filter(cid => cid !== id) : [...prev, id]);
     };
 
     return (
-        <div className="space-y-6 p-6 bg-white rounded-lg shadow-lg">
-            <div className="flex justify-between items-center">
+        <div className="space-y-6">
+             <div className="flex justify-between items-center bg-white p-4 rounded-lg shadow-sm border">
                 <h2 className="text-2xl font-bold text-primary">{t('syllabusCoverageReport')}</h2>
-                <button onClick={handleAddNewReport} className="px-4 py-2 bg-primary text-white font-bold rounded-lg hover:bg-opacity-90 transition-colors">+ {t('addNewSyllabusReport')}</button>
+                <button onClick={handleAddReport} className="px-4 py-2 bg-primary text-white font-bold rounded-lg hover:bg-opacity-90 transition-colors">
+                    + {t('addNewSyllabusReport')}
+                </button>
             </div>
             
             <div className="space-y-4">
                 {reports.length > 0 ? reports.map(report => (
                     <ReportEditor 
-                        key={report.id} 
+                        key={report.id}
                         report={report}
                         allReports={reports}
                         allTeachers={allTeachers}
                         onUpdate={handleUpdateReport}
                         onDelete={handleDeleteReport}
-                        isCollapsed={collapsedReportIds.includes(report.id)}
+                        isCollapsed={collapsedIds.includes(report.id)}
                         onToggleCollapse={() => toggleCollapse(report.id)}
                     />
                 )) : <p className="text-center text-gray-500 py-8">{t('noSyllabusCoverageReports')}</p>}
