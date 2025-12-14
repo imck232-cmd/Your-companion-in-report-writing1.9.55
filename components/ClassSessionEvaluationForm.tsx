@@ -22,7 +22,10 @@ interface SyllabusStatusDisplayProps {
 const SyllabusStatusDisplay: React.FC<SyllabusStatusDisplayProps> = ({ syllabusPlans, reportDate, reportSubject, reportGrade, lessonName, onStatusChange }) => {
     const { t } = useLanguage();
     
-    const statusInfo = useMemo(() => {
+    const statusInfo = useMemo<{
+        display: React.ReactNode | null;
+        data?: { plannedLesson: string; status: 'ahead' | 'on_track' | 'behind' };
+    } | null>(() => {
         if (!lessonName.trim() || !reportDate || !reportSubject || !reportGrade) {
             return null;
         }
