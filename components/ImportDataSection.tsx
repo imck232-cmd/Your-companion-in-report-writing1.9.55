@@ -95,18 +95,23 @@ const ImportDataSection: React.FC<ImportDataSectionProps> = ({ onDataParsed, for
                    - 'status': Text after 🔵 *الحالة:* (Map 'مطابق' -> 'on_track', 'متقدم' -> 'ahead', 'متأخر' -> 'behind')
                    - 'lastLesson': Text after *✍️ آخر درس:*
                 
-                3. **Lists Extraction (Bullet Points):**
-                   - For fields like 'programsImplemented' (*💻 البرامج المنفذة:*), 'strategiesImplemented' (*💡 الاستراتيجيات المستخدمة:*), 'toolsUsed' (*🛠️ الوسائل المستخدمة:*), 'sourcesUsed' (*📚 المصادر المستخدمة:*), 'tasksDone' (*✅ التكاليف:*), 'testsDelivered' (*📄 الاختبارات:*), 'peerVisitsDone' (*🤝 الزيارات التبادلية:*):
-                   - Capture ALL lines starting with "-" or "•" under the specific header.
+                3. **Class Session Evaluation Extraction:**
+                   - **Groups:** Look for headers starting with *📌* (e.g., *📌 الكفايات الشخصية...*). These match the 'title' in criterionGroups.
+                   - **Criteria:** Under each group, lines starting with "-" or "•" are criteria. 
+                   - **Scores:** Extract the score from text like "4 / 4". The first number is the score. Ignore the percentage in brackets (e.g. (⭐ 100%)).
+                   - **Structure:** Return 'criterionGroups' as an array of objects: { title: "Group Name", criteria: [{ label: "Criterion Text", score: 4 }, ...] }.
+
+                4. **Lists Extraction (Bullet Points):**
+                   - For qualitative fields (Positives, Notes, Recommendations, etc.), capture ALL lines starting with "-" or "•" under the specific header.
                    - Join them into a single string separated by newlines ("\n"). Do NOT return an array.
                 
-                4. **Quantitative Stats:**
+                5. **Quantitative Stats:**
                    - *تصحيح الدفاتر:* -> notebookCorrection (Number only, remove %)
                    - *دفتر التحضير:* -> preparationBook (Number only, remove %)
                    - *مسرد الأسئلة:* -> questionsGlossary (Number only, remove %)
 
                 **OUTPUT:**
-                Return ONLY valid JSON. No markdown, no comments.
+                Return ONLY valid JSON. No markdown, no comments. Do NOT include 'id' in the output object.
             `;
             
             const response: GenerateContentResponse = await ai.models.generateContent({

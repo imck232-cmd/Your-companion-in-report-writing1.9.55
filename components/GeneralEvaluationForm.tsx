@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { GeneralEvaluationReport, GeneralCriterion, Teacher, CustomCriterion, SyllabusPlan } from '../types';
 import { useLanguage } from '../i18n/LanguageContext';
@@ -136,21 +137,25 @@ const GeneralEvaluationForm: React.FC<GeneralEvaluationFormProps> = ({ report, t
   const performanceStyle = getPerformanceStyles(totalPercentage);
   
   const handleDataParsed = (parsedData: Partial<GeneralEvaluationReport>) => {
+    // CRITICAL FIX: Extract 'id' to prevent overwriting.
+    const { id, ...dataToMerge } = parsedData;
+    
     const updatedFormData = { ...formData };
 
     // Update simple fields
     for (const key of ['subject', 'grades', 'date', 'branch', 'strategies', 'tools', 'sources', 'programs', 'plannedSyllabusLesson']) {
-        if (parsedData[key as keyof typeof parsedData]) {
-            (updatedFormData as any)[key] = parsedData[key as keyof typeof parsedData];
+        if (dataToMerge[key as keyof typeof dataToMerge]) {
+            (updatedFormData as any)[key] = dataToMerge[key as keyof typeof dataToMerge];
         }
     }
     
-    // Update criteria scores
-    if (parsedData.criteria && Array.isArray(parsedData.criteria)) {
+    // Update criteria scores by matching labels
+    if (dataToMerge.criteria && Array.isArray(dataToMerge.criteria)) {
         const newCriteria = [...updatedFormData.criteria];
-        parsedData.criteria.forEach(parsedCrit => {
+        dataToMerge.criteria.forEach(parsedCrit => {
             if (parsedCrit.label && typeof parsedCrit.score === 'number') {
-                const index = newCriteria.findIndex(c => c.label === parsedCrit.label);
+                // Fuzzy match labels
+                const index = newCriteria.findIndex(c => c.label.includes(parsedCrit.label) || parsedCrit.label.includes(c.label));
                 if (index !== -1) {
                     newCriteria[index].score = Math.max(0, Math.min(4, parsedCrit.score)) as 0|1|2|3|4;
                 }

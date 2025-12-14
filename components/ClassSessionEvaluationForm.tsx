@@ -333,48 +333,94 @@ const ClassSessionEvaluationForm: React.FC<ClassSessionEvaluationFormProps> = ({
   const teacherSections = useMemo(() => teacher.sectionsTaught?.split(',').map(s => s.trim()).filter(Boolean) || [], [teacher.sectionsTaught]);
   
     const handleDataParsed = (parsedData: Partial<ClassSessionEvaluationReport>) => {
+        // CRITICAL FIX: Extract 'id' to prevent overwriting the existing report's ID.
+        // This stops the report from disappearing/cancelling unexpectedly.
+        const { id, ...dataToMerge } = parsedData;
+        
         const updatedFormData = { ...formData };
 
-        for (const key of ['subject', 'grades', 'date', 'branch', 'strategies', 'tools', 'sources', 'programs', 'positives', 'notesForImprovement', 'recommendations', 'employeeComment', 'visitType', 'class', 'section', 'lessonNumber', 'lessonName', 'plannedSyllabusLesson']) {
-            if (parsedData[key as keyof typeof parsedData]) {
-                (updatedFormData as any)[key] = parsedData[key as keyof typeof parsedData];
-            }
-        }
+        // Clean simple fields: Remove emojis and extra labels
+        const cleanString = (str: string | undefined) => {
+            if (!str) return '';
+            return str.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '')
+                      .replace(':', '').trim();
+        };
+
+        if (dataToMerge.subject) updatedFormData.subject = cleanString(dataToMerge.subject);
+        if (dataToMerge.grades) updatedFormData.grades = cleanString(dataToMerge.grades);
+        if (dataToMerge.date) updatedFormData.date = dataToMerge.date; // Date is usually formatted well by AI prompt
         
-        if (parsedData.criterionGroups && Array.isArray(parsedData.criterionGroups)) {
-            const newGroups = [...updatedFormData.criterionGroups];
-            parsedData.criterionGroups.forEach(parsedGroup => {
-                const groupIndex = newGroups.findIndex(g => g.title === parsedGroup.title);
-                if (groupIndex !== -1 && parsedGroup.criteria && Array.isArray(parsedGroup.criteria)) {
+        // Map other simple fields
+        if (dataToMerge.visitType) updatedFormData.visitType = dataToMerge.visitType as any;
+        if (dataToMerge.lessonName) updatedFormData.lessonName = cleanString(dataToMerge.lessonName);
+        if (dataToMerge.section) updatedFormData.section = cleanString(dataToMerge.section) as any;
+        
+        // Merge Text Areas (Qualitative Data)
+        if (dataToMerge.positives) updatedFormData.positives = dataToMerge.positives;
+        if (dataToMerge.notesForImprovement) updatedFormData.notesForImprovement = dataToMerge.notesForImprovement;
+        if (dataToMerge.recommendations) updatedFormData.recommendations = dataToMerge.recommendations;
+        if (dataToMerge.employeeComment) updatedFormData.employeeComment = dataToMerge.employeeComment;
+
+        // CRITICAL FIX: Smart Merge for Criterion Groups
+        // Instead of replacing, we find matching groups/criteria and update scores.
+        if (dataToMerge.criterionGroups && Array.isArray(dataToMerge.criterionGroups)) {
+            const currentGroups = [...updatedFormData.criterionGroups];
+            
+            dataToMerge.criterionGroups.forEach(parsedGroup => {
+                // Fuzzy match group title
+                const matchedGroup = currentGroups.find(g => 
+                    g.title.includes(parsedGroup.title) || parsedGroup.title.includes(g.title)
+                );
+
+                if (matchedGroup && parsedGroup.criteria) {
                     parsedGroup.criteria.forEach(parsedCrit => {
-                        if (parsedCrit.label && typeof parsedCrit.score === 'number') {
-                            const critIndex = newGroups[groupIndex].criteria.findIndex(c => c.label === parsedCrit.label);
-                            if (critIndex !== -1) {
-                                newGroups[groupIndex].criteria[critIndex].score = Math.max(0, Math.min(4, parsedCrit.score)) as 0|1|2|3|4;
-                            }
+                        // Fuzzy match criterion label
+                        const matchedCrit = matchedGroup.criteria.find(c => 
+                            c.label.includes(parsedCrit.label) || parsedCrit.label.includes(c.label)
+                        );
+
+                        if (matchedCrit && typeof parsedCrit.score === 'number') {
+                            matchedCrit.score = Math.max(0, Math.min(4, parsedCrit.score)) as 0|1|2|3|4;
                         }
                     });
                 }
             });
-            updatedFormData.criterionGroups = newGroups;
+            updatedFormData.criterionGroups = currentGroups;
         }
         
         setFormData(updatedFormData);
         setShowImport(false);
     };
 
+    // Improved prompt structure to match the user's specific text format
     const formStructureForAI = useMemo(() => ({
-        evaluationType: 'class_session',
-        subType: formData.subType,
-        subject: '', grades: '', section: '', date: 'YYYY-MM-DD',
-        visitType: '', lessonNumber: '', lessonName: '', plannedSyllabusLesson: '',
-        criterionGroups: formData.criterionGroups.map(g => ({
-            title: g.title,
-            criteria: g.criteria.map(c => ({ label: c.label, score: 0 }))
-        })),
-        strategies: '', tools: '', sources: '', programs: '',
-        positives: '', notesForImprovement: '', recommendations: '', employeeComment: ''
-    }), [formData.criterionGroups, formData.subType]);
+        // Using descriptive keys to guide the AI
+        subject: "استخرج المادة (مثال: التربية الإسلامية)",
+        grades: "استخرج الصفوف (مثال: ٥،٦،٧،٨)",
+        section: "استخرج الشعب (مثال: أ،ب)",
+        date: "استخرج التاريخ بتنسيق YYYY-MM-DD",
+        visitType: "استخرج نوع الزيارة (مثال: تقييمية 1)",
+        lessonName: "استخرج عنوان الدرس",
+        
+        // Nested Groups with Instructions
+        criterionGroups: [
+            {
+                title: "اسم المجموعة (مثال: الكفايات الشخصية وسمات المعلم)",
+                criteria: [
+                    { 
+                        label: "نص المعيار (مثال: يهتم بمظهره الشخصي)", 
+                        score: "الرقم الأول قبل علامة / (مثال: من 4 / 4 استخرج 4)" 
+                    }
+                ]
+            }
+        ],
+        
+        // Qualitative Data
+        positives: "النص الموجود تحت *👍 الإيجابيات:*",
+        notesForImprovement: "النص الموجود تحت *📝 ملاحظات للتحسين:*",
+        recommendations: "النص الموجود تحت *🎯 التوصيات:*",
+        employeeComment: "النص الموجود تحت *✍️ تعليق الموظف:*",
+    }), []);
 
 
   return (
