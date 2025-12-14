@@ -114,7 +114,7 @@ const WhatsAppBulkModal: React.FC<{
                                     className="flex items-center gap-2 px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 text-sm font-bold"
                                 >
                                     <span>إرسال</span>
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.894 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.886-.001 2.267.651 4.383 1.905 6.25l-.275 1.002 1.03 1.018zM8.718 7.243c.133-.336.434-.543.818-.576.43-.034.636.101.804.312.189.231.631 1.52.663 1.623.032.102.05.213-.016.344-.065.131-.229.213-.401.325-.202.129-.41.26-.552.404-.16.161-.318.35-.165.608.175.292.747 1.229 1.624 2.016.994.881 1.866 1.158 2.149 1.24.31.09.462.046.63-.122.19-.184.82-1.022.952-1.229.132-.206.264-.238.44-.152.195.094 1.306.685 1.518.79.212.105.356.161.404.248.048.088.028.471-.124.922-.152.452-.947.881-1.306.922-.32.034-1.127.02-1.748-.227-.753-.3-1.859-1.158-3.041-2.451-1.37-1.52-2.316-3.213-2.316-3.213s-.165-.286-.318-.553c-.152-.267-.32-.287-.462-.287-.132 0-.304.01-.462.01z"/></svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.894 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.886-.001 2.267.651 4.383 1.905 6.25l-.275 1.002 1.03 1.018z"/></svg>
                                 </button>
                             </div>
                         );
@@ -152,15 +152,25 @@ const ReportEditor: React.FC<{
             .filter(r => r.teacherId === newTeacherId && r.id !== report.id)
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
 
-        onUpdate({ ...report, teacherId: newTeacherId, branch: latestReportForTeacher?.branch || report.branch });
+        onUpdate({
+            ...report,
+            teacherId: newTeacherId,
+            branch: latestReportForTeacher?.branch || report.branch,
+        });
     };
     
     const handleHeaderChange = (field: keyof SyllabusCoverageReport, value: string) => {
         const updatedReport = { ...report, [field]: value };
+    
         if (field === 'subject') {
-            let subjectValue = value === 'other' ? otherSubject : value;
-            if(value !== 'other') setOtherSubject('');
+            let subjectValue = value;
+            if (value === 'other') {
+                subjectValue = otherSubject;
+            } else {
+                setOtherSubject('');
+            }
             updatedReport.subject = subjectValue;
+    
             const branches = SUBJECT_BRANCH_MAP[subjectValue] || [];
             const newBranches: SyllabusBranchProgress[] = branches.map(branchName => {
                 const existing = report.branches.find(b => b.branchName === branchName);
@@ -168,52 +178,210 @@ const ReportEditor: React.FC<{
             });
             updatedReport.branches = newBranches;
         }
-        if(field === 'grade' && value === 'other') updatedReport.grade = otherGrade;
+
+        if(field === 'grade' && value === 'other'){
+            updatedReport.grade = otherGrade;
+        }
+    
         onUpdate(updatedReport as SyllabusCoverageReport);
     };
     
     const handleBranchUpdate = (branchIndex: number, field: keyof SyllabusBranchProgress, value: string) => {
         const newBranches = [...report.branches];
         const branchToUpdate = { ...newBranches[branchIndex] };
+
         if (field === 'status') {
             branchToUpdate.status = value as SyllabusBranchProgress['status'];
             branchToUpdate.lessonDifference = ''; 
-            if (value === 'on_track' || value === 'ahead') branchToUpdate.percentage = 100; else branchToUpdate.percentage = 0;
-        } else { (branchToUpdate as any)[field] = value; }
+            if (value === 'on_track') branchToUpdate.percentage = 100;
+            else if (value === 'ahead') branchToUpdate.percentage = 100;
+            else branchToUpdate.percentage = 0;
+        } else {
+            (branchToUpdate as any)[field] = value;
+        }
+
         newBranches[branchIndex] = branchToUpdate;
         onUpdate({ ...report, branches: newBranches });
     };
     
-    const handleFieldUpdate = (field: keyof SyllabusCoverageReport, value: string) => onUpdate({ ...report, [field]: value });
+    // Handler for new dynamic fields
+    const handleFieldUpdate = (field: keyof SyllabusCoverageReport, value: string) => {
+        onUpdate({ ...report, [field]: value });
+    };
 
+    // Excel Import Logic
     const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
+
         const reader = new FileReader();
         reader.onload = (evt) => {
             try {
                 const bstr = evt.target?.result;
                 const wb = XLSX.read(bstr, { type: 'binary' });
-                const ws = wb.Sheets[wb.SheetNames[0]];
+                const wsname = wb.SheetNames[0];
+                const ws = wb.Sheets[wsname];
                 const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
+
                 if (data.length > 0) {
-                    alert('تم استيراد البيانات (المحاكاة).');
+                    const updatedReport = { ...report };
+                    let branches: SyllabusBranchProgress[] = [];
+                    
+                    const findValue = (key: string) => {
+                        for (let i = 0; i < data.length; i++) {
+                            const row = data[i] as any[];
+                            if (row[0] && String(row[0]).includes(key)) {
+                                return row[1];
+                            }
+                        }
+                        return null;
+                    };
+
+                    const teacherName = findValue('المعلم');
+                    if (teacherName) updatedReport.teacherId = allTeachers.find(t => t.name === teacherName)?.id || report.teacherId;
+                    
+                    const subj = findValue('المادة');
+                    if(subj) updatedReport.subject = subj;
+                    
+                    const grd = findValue('الصف');
+                    if(grd) updatedReport.grade = grd;
+                    
+                    const acYear = findValue('العام الدراسي');
+                    if(acYear) updatedReport.academicYear = acYear;
+                    
+                    const school = findValue('المدرسة');
+                    if(school) updatedReport.schoolName = school;
+
+                    const reportDate = findValue('التاريخ');
+                    if(reportDate) updatedReport.date = reportDate;
+                    
+                    const semester = findValue('الفصل الدراسي') || findValue('الفصل');
+                    if (semester && (semester.includes('الأول') || semester.includes('1'))) updatedReport.semester = 'الأول';
+                    else if (semester && (semester.includes('الثاني') || semester.includes('2'))) updatedReport.semester = 'الثاني';
+
+                    let branchHeaderRowIndex = -1;
+                    for(let i=0; i<data.length; i++) {
+                        const row = data[i] as any[];
+                        if(row.includes('الفرع') && (row.includes('حالة السير') || row.includes('الحالة'))) {
+                            branchHeaderRowIndex = i;
+                            break;
+                        }
+                    }
+
+                    if(branchHeaderRowIndex !== -1) {
+                        for(let i = branchHeaderRowIndex + 1; i < data.length; i++) {
+                            const row = data[i] as any[];
+                            if(!row[0]) break; 
+                            
+                            const branchName = row[0];
+                            const statusText = row[1];
+                            const lastLesson = row[2];
+                            const diff = row[3];
+
+                            let status: SyllabusBranchProgress['status'] = 'not_set';
+                            if(String(statusText).includes(t('statusAhead'))) status = 'ahead';
+                            else if(String(statusText).includes(t('statusBehind'))) status = 'behind';
+                            else if(String(statusText).includes(t('statusOnTrack'))) status = 'on_track';
+
+                            branches.push({
+                                branchName,
+                                status,
+                                lastLesson: lastLesson || '',
+                                lessonDifference: diff || '',
+                                percentage: status === 'on_track' ? 100 : 0
+                            });
+                        }
+                        if(branches.length > 0) updatedReport.branches = branches;
+                    }
+
+                    const meetings = findValue(t('meetingsAttended')) || findValue('اللقاءات');
+                    if(meetings) updatedReport.meetingsAttended = String(meetings);
+                    
+                    const correction = findValue(t('notebookCorrection')) || findValue('تصحيح');
+                    if(correction) updatedReport.notebookCorrection = String(correction).replace('%', '').trim();
+                    
+                    const prep = findValue(t('preparationBook')) || findValue('التحضير');
+                    if(prep) updatedReport.preparationBook = String(prep).replace('%', '').trim();
+                    
+                    const glos = findValue(t('questionsGlossary')) || findValue('مسرد');
+                    if(glos) updatedReport.questionsGlossary = String(glos).replace('%', '').trim();
+
+                    const strats = findValue(t('strategiesUsed')) || findValue('الاستراتيجيات');
+                    if(strats) updatedReport.strategiesImplemented = strats;
+                    
+                    const tools = findValue(t('toolsUsed')) || findValue('الوسائل');
+                    if(tools) updatedReport.toolsUsed = tools;
+                    
+                    const sources = findValue(t('sourcesUsed')) || findValue('المصادر');
+                    if(sources) updatedReport.sourcesUsed = sources;
+                    
+                    const progs = findValue(t('programsUsed')) || findValue('البرامج');
+                    if(progs) updatedReport.programsImplemented = progs;
+                    
+                    const tasks = findValue(t('tasksDone')) || findValue('التكاليف');
+                    if(tasks) updatedReport.tasksDone = tasks;
+                    
+                    const tests = findValue(t('testsDelivered')) || findValue('الاختبارات');
+                    if(tests) updatedReport.testsDelivered = tests;
+                    
+                    const visits = findValue(t('peerVisitsDone')) || findValue('الزيارات');
+                    if(visits) updatedReport.peerVisitsDone = visits;
+
+                    onUpdate(updatedReport);
+                    alert('تم استيراد جميع البيانات بنجاح.');
                 }
-            } catch (error) { console.error(error); alert('خطأ في الملف'); }
+            } catch (error) {
+                console.error("Import error:", error);
+                alert('حدث خطأ أثناء قراءة ملف الإكسل.');
+            }
         };
         reader.readAsBinaryString(file);
+        if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
-    const handleSave = () => { setIsSaving(true); setTimeout(() => setIsSaving(false), 1500); };
+    const handleSave = () => {
+        setIsSaving(true);
+        setTimeout(() => setIsSaving(false), 1500);
+    };
 
     const handleDataParsed = (data: any) => {
+        // IMPORTANT: Extract ID to prevent overwriting the existing report's ID
+        // We explicitly destructure `id` and `teacherId` to control them manually
         const { id, teacherId, branches, ...otherData } = data;
-        let resolvedTeacherId = report.teacherId;
-        if (!report.teacherId && teacherId) {
-            const found = allTeachers.find(t => t.name.includes(String(teacherId).trim()) || String(teacherId).includes(t.name));
-            if (found) resolvedTeacherId = found.id;
-        }
         
+        let resolvedTeacherId = report.teacherId;
+        
+        // Only update teacher ID if the current report hasn't been assigned a teacher yet
+        // This prevents the report from "jumping" to another teacher list and disappearing
+        if (!report.teacherId && teacherId) {
+            const nameToSearch = String(teacherId).trim();
+            const found = allTeachers.find(t => t.name.includes(nameToSearch) || nameToSearch.includes(t.name));
+            if (found) {
+                resolvedTeacherId = found.id;
+            } else if (allTeachers.find(t => t.id === teacherId)) {
+                resolvedTeacherId = teacherId;
+            }
+        }
+
+        // --- 2. Sanitize Percentages (Remove % and text) ---
+        const sanitizeNumberString = (val: any) => {
+            if (!val) return '';
+            return String(val).replace(/[^0-9]/g, '');
+        };
+
+        if (otherData.notebookCorrection) otherData.notebookCorrection = sanitizeNumberString(otherData.notebookCorrection);
+        if (otherData.preparationBook) otherData.preparationBook = sanitizeNumberString(otherData.preparationBook);
+        if (otherData.questionsGlossary) otherData.questionsGlossary = sanitizeNumberString(otherData.questionsGlossary);
+
+        // --- 3. Sanitize Grade & Subject ---
+        if (otherData.grade) {
+            otherData.grade = String(otherData.grade).replace('الصف', '').replace(':', '').replace('(رئيسي)', '').trim();
+        }
+        if (otherData.subject) {
+            otherData.subject = String(otherData.subject).replace('المادة', '').replace(':', '').split('-')[0].trim();
+        }
+
+        // --- 4. Merge branches safely ---
         let updatedBranches = report.branches;
         if (branches && Array.isArray(branches) && branches.length > 0) {
             updatedBranches = branches.map((b: any) => ({
@@ -225,28 +393,58 @@ const ReportEditor: React.FC<{
             }));
         }
 
+        // --- 5. Construct New Report (CRITICAL: PRESERVE ID & TEACHERID) ---
         const newReport: SyllabusCoverageReport = { 
-            ...report, ...otherData, id: report.id, teacherId: resolvedTeacherId, branches: updatedBranches 
+            ...report, // Preserve all existing fields first
+            ...otherData, // Overwrite with AI data (only what's provided)
+            id: report.id, // Explicitly keep the original ID so React doesn't lose track of it
+            teacherId: resolvedTeacherId, 
+            branches: updatedBranches 
         };
+
         onUpdate(newReport);
         setShowAIImport(false);
     };
 
+    // Prompt structure matched exactly to the User's provided text format
     const formStructureForAI = {
-        schoolName: "extract from: *🏫 المدرسة:*", academicYear: "extract from: *🎓 العام الدراسي:*",
-        semester: "extract from: *الفصل:*", subject: "extract from: *📖 المادة:*", grade: "extract from: *الصف:*",
-        teacherId: "extract from: *👨‍🏫 المعلم:*", date: "extract from: *📅 التاريخ:*",
-        branches: [{ branchName: "from *📌 فرع:*", status: "from *الحالة:*", lastLesson: "from *✍️ آخر درس:*" }],
-        meetingsAttended: "count", notebookCorrection: "from *تصحيح الدفاتر:*",
-        preparationBook: "from *دفتر التحضير:*", questionsGlossary: "from *مسرد الأسئلة:*",
-        programsImplemented: "list", strategiesImplemented: "list", toolsUsed: "list", sourcesUsed: "list",
-        tasksDone: "list", testsDelivered: "list", peerVisitsDone: "list"
+        schoolName: "extract from: *🏫 المدرسة:*",
+        academicYear: "extract from: *🎓 العام الدراسي:*",
+        semester: "extract from: *الفصل:*",
+        subject: "extract from: *📖 المادة:* (before hyphen)",
+        grade: "extract from: *الصف:*",
+        teacherId: "extract from: *👨‍🏫 المعلم:*",
+        date: "extract from: *📅 التاريخ:*",
+        branches: [{ 
+            branchName: "from *📌 فرع:*", 
+            status: "from *الحالة:* (map 'مطابق'->'on_track')", 
+            lastLesson: "from *✍️ آخر درس:*"
+        }],
+        meetingsAttended: "count",
+        notebookCorrection: "from *تصحيح الدفاتر:*",
+        preparationBook: "from *دفتر التحضير:*",
+        questionsGlossary: "from *مسرد الأسئلة:*",
+        programsImplemented: "list under *💻 البرامج المنفذة:*",
+        strategiesImplemented: "list under *💡 الاستراتيجيات المستخدمة:*",
+        toolsUsed: "list under *🛠️ الوسائل المستخدمة:*",
+        sourcesUsed: "list under *📚 المصادر المستخدمة:*",
+        tasksDone: "list under *✅ التكاليف:*",
+        testsDelivered: "list under *📄 الاختبارات:*",
+        peerVisitsDone: "list under *🤝 الزيارات التبادلية:*"
     };
 
+    const reportTitle = t('reportTitle')
+        .replace('{subject}', report.subject || `(${t('subject')})`)
+        .replace('{grade}', report.grade || `(${t('grade')})`)
+        .replace('{semester}', report.semester)
+        .replace('{academicYear}', report.academicYear);
+
     const teacherName = teacherMap.get(report.teacherId) || '';
-    const reportTitle = t('reportTitle').replace('{subject}', report.subject || `(${t('subject')})`).replace('{grade}', report.grade || `(${t('grade')})`).replace('{semester}', report.semester).replace('{academicYear}', report.academicYear);
+    const isOtherSubject = !SUBJECTS.includes(report.subject) || report.subject === 'أخرى';
+    const isOtherGrade = !GRADES.includes(report.grade) || report.grade === 'أخرى';
     const percentageOptions = Array.from({length: 20}, (_, i) => (i + 1) * 5).map(String);
 
+    // Collapsed View
     if (isCollapsed) {
         return (
             <div className="p-3 border rounded-lg bg-white shadow-sm flex justify-between items-center cursor-pointer hover:bg-gray-50 transition-colors" onClick={onToggleCollapse}>
@@ -261,8 +459,9 @@ const ReportEditor: React.FC<{
         );
     }
 
+    // Expanded View - Updated container with reduced padding on mobile and overflow protection
     return (
-        <div className="p-4 border-2 border-primary-light rounded-xl space-y-4 bg-white shadow-sm relative">
+        <div className="p-2 md:p-4 border-2 border-primary-light rounded-xl space-y-4 bg-white shadow-sm relative max-w-full overflow-hidden">
             <div className="flex justify-between items-start cursor-pointer" onClick={onToggleCollapse}>
                 <h3 className="text-lg font-semibold text-primary">{report.teacherId ? reportTitle : t('addNewSyllabusReport')}</h3>
                 <div className="flex items-center gap-2">
@@ -272,7 +471,7 @@ const ReportEditor: React.FC<{
                 </div>
             </div>
 
-            <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-200 mb-6 shadow-inner">
+            <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-200 mb-6 shadow-inner max-w-full">
                 <div className="flex flex-wrap items-center gap-3">
                     <button onClick={() => setShowAIImport(!showAIImport)} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition-colors shadow-sm">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
@@ -304,22 +503,23 @@ const ReportEditor: React.FC<{
                 </div>
                 <div>
                     <label className="text-xs font-bold block">{t('subject')}</label>
-                    <div className="flex gap-1">
-                        <select value={!SUBJECTS.includes(report.subject) ? 'other' : report.subject} onChange={e => handleHeaderChange('subject', e.target.value)} className="w-full p-2 border rounded">{SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}</select>
-                        {!SUBJECTS.includes(report.subject) && <input type="text" value={otherSubject} onChange={e => { setOtherSubject(e.target.value); handleHeaderChange('subject', e.target.value) }} className="w-full p-2 border rounded" />}
+                    <div className="flex gap-1 flex-wrap">
+                        <select value={!SUBJECTS.includes(report.subject) ? 'other' : report.subject} onChange={e => handleHeaderChange('subject', e.target.value)} className="w-full p-2 border rounded flex-grow min-w-0">{SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}</select>
+                        {!SUBJECTS.includes(report.subject) && <input type="text" value={otherSubject} onChange={e => { setOtherSubject(e.target.value); handleHeaderChange('subject', e.target.value) }} className="w-full p-2 border rounded flex-grow min-w-0" />}
                     </div>
                 </div>
                 <div>
                     <label className="text-xs font-bold block">{t('grade')}</label>
-                    <div className="flex gap-1">
-                        <select value={!GRADES.includes(report.grade) ? 'other' : report.grade} onChange={e => handleHeaderChange('grade', e.target.value)} className="w-full p-2 border rounded">{GRADES.map(g => <option key={g} value={g}>{g}</option>)}</select>
-                        {!GRADES.includes(report.grade) && <input type="text" value={otherGrade} onChange={e => { setOtherGrade(e.target.value); handleHeaderChange('grade', e.target.value) }} className="w-full p-2 border rounded" />}
+                    <div className="flex gap-1 flex-wrap">
+                        <select value={!GRADES.includes(report.grade) ? 'other' : report.grade} onChange={e => handleHeaderChange('grade', e.target.value)} className="w-full p-2 border rounded flex-grow min-w-0">{GRADES.map(g => <option key={g} value={g}>{g}</option>)}</select>
+                        {!GRADES.includes(report.grade) && <input type="text" value={otherGrade} onChange={e => { setOtherGrade(e.target.value); handleHeaderChange('grade', e.target.value) }} className="w-full p-2 border rounded flex-grow min-w-0" />}
                     </div>
                 </div>
             </div>
 
+            {/* Table wrapper with horizontal scroll enabled and minimum width for table */}
             <div className="overflow-x-auto border rounded-lg bg-white">
-                <div className="min-w-[600px]"> 
+                <div className="min-w-[700px]"> 
                     <div className="bg-blue-100 p-2 flex font-bold text-sm">
                         <div className="w-1/4 p-1 border-l border-blue-200">{t('branch')}</div>
                         <div className="w-1/3 p-1 border-l border-blue-200">{t('lastLesson')}</div>
@@ -424,8 +624,6 @@ const SyllabusCoverageManager: React.FC<SyllabusCoverageManagerProps> = ({
     semester, 
     allTeachers 
 }) => {
-    // ... [Rest of the file remains exactly the same as previous full version] ...
-    // To ensure full file integrity, repeating the wrapper logic
     const { t } = useLanguage();
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedReports, setSelectedReports] = useState<string[]>([]);
@@ -675,7 +873,7 @@ const SyllabusCoverageManager: React.FC<SyllabusCoverageManagerProps> = ({
                                     className="w-5 h-5 text-primary rounded cursor-pointer"
                                 />
                             </div>
-                            <div className="flex-grow">
+                            <div className="flex-grow max-w-full overflow-hidden">
                                 <ReportEditor 
                                     report={report}
                                     allReports={reports}
