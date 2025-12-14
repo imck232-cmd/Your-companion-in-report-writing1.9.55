@@ -482,7 +482,7 @@ export const exportSyllabusCoverage = (
 
                 let statusText = translateStatus(b.status);
                 if ((b.status === 'ahead' || b.status === 'behind') && b.lessonDifference) {
-                    statusText += ` (${b.lessonDifference} دروس)`;
+                    statusText += ` (بعدد ${b.lessonDifference} دروس)`;
                 }
                 
                 content += `\n*📌 فرع: ${b.branchName}*\n`;
@@ -491,13 +491,13 @@ export const exportSyllabusCoverage = (
             });
         }
 
-        content += `\n*--- 📊 الإحصائيات الكمية ---*\n`;
+        content += `\n*--- 📊 مؤشرات الأداء ---*\n`;
         content += `🤝 *${t('meetingsAttended')}:* ${report.meetingsAttended || '0'}\n`;
-        content += `📚 *${t('notebookCorrection')}:* ${report.notebookCorrection ? report.notebookCorrection + '%' : '0%'}\n`;
-        content += `📝 *${t('preparationBook')}:* ${report.preparationBook ? report.preparationBook + '%' : '0%'}\n`;
-        content += `📖 *${t('questionsGlossary')}:* ${report.questionsGlossary ? report.questionsGlossary + '%' : '0%'}\n`;
+        content += `📚 *${t('notebookCorrection')}:* ${report.notebookCorrection ? 'مكتملة بنسبة ' + report.notebookCorrection + '%' : 'غير محدد'}\n`;
+        content += `📝 *${t('preparationBook')}:* ${report.preparationBook ? 'مكتمل بنسبة ' + report.preparationBook + '%' : 'غير محدد'}\n`;
+        content += `📖 *${t('questionsGlossary')}:* ${report.questionsGlossary ? 'مكتمل بنسبة ' + report.questionsGlossary + '%' : 'غير محدد'}\n`;
 
-        content += `\n*--- 📝 البيانات النوعية ---*\n`;
+        content += `\n*--- 📝 البيانات التفصيلية ---*\n`;
         const qualitativeFields = [
             { key: 'programsImplemented', label: t('programsUsed'), icon: '💻' },
             { key: 'strategiesImplemented', label: t('strategiesUsed'), icon: '💡' },
