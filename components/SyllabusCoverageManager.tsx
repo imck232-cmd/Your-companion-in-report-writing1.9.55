@@ -347,6 +347,7 @@ const ReportEditor: React.FC<{
 
     const handleDataParsed = (data: any) => {
         // IMPORTANT: Extract ID to prevent overwriting the existing report's ID
+        // We explicitly destructure `id` and IGNORE it from the incoming data
         const { id, branches, ...otherData } = data;
         
         // --- 1. Resolve Teacher Name to ID ---
@@ -375,21 +376,29 @@ const ReportEditor: React.FC<{
         if (otherData.preparationBook) otherData.preparationBook = sanitizeNumberString(otherData.preparationBook);
         if (otherData.questionsGlossary) otherData.questionsGlossary = sanitizeNumberString(otherData.questionsGlossary);
 
-        // --- 3. Sanitize Grade (Remove 'الصف') ---
+        // --- 3. Sanitize Grade (Remove 'الصف' and specific words) ---
         if (otherData.grade) {
-            otherData.grade = String(otherData.grade).replace('الصف', '').replace(':', '').trim();
+            otherData.grade = String(otherData.grade)
+                .replace('الصف', '')
+                .replace(':', '')
+                .replace('(رئيسي)', '') // Clean up common extra text in user input
+                .trim();
         }
         
         // --- 4. Sanitize Subject (Remove 'المادة') ---
         if (otherData.subject) {
-            otherData.subject = String(otherData.subject).replace('المادة', '').replace(':', '').trim();
+            otherData.subject = String(otherData.subject)
+                .replace('المادة', '')
+                .replace(':', '')
+                .split('-')[0] // Sometimes user input has "Subject - Grade"
+                .trim();
         }
 
         // --- 5. Merge branches safely ---
         let updatedBranches = report.branches;
         if (branches && Array.isArray(branches) && branches.length > 0) {
             updatedBranches = branches.map((b: any) => ({
-                branchName: b.branchName ? String(b.branchName).replace('فرع:', '').trim() : '',
+                branchName: b.branchName ? String(b.branchName).replace('فرع:', '').replace('📌', '').trim() : '',
                 status: ['ahead', 'on_track', 'behind', 'not_set'].includes(b.status) ? b.status : 'not_set',
                 lastLesson: b.lastLesson || '',
                 lessonDifference: b.lessonDifference || '',
@@ -397,10 +406,11 @@ const ReportEditor: React.FC<{
             }));
         }
 
-        const newReport = { 
+        // --- 6. Construct New Report (CRITICAL: PRESERVE ID) ---
+        const newReport: SyllabusCoverageReport = { 
             ...report, // Preserve all existing fields first
             ...otherData, // Overwrite with AI data (only what's provided)
-            id: report.id, // Explicitly keep the original ID
+            id: report.id, // Explicitly keep the original ID so React doesn't lose track of it
             teacherId: resolvedTeacherId, 
             branches: updatedBranches 
         };
@@ -411,30 +421,29 @@ const ReportEditor: React.FC<{
 
     // Improved prompt structure to guide AI better - Using Descriptive Values matched to user text
     const formStructureForAI = {
-        schoolName: "النص بعد: *🏫 المدرسة:*",
-        academicYear: "النص بعد: *🎓 العام الدراسي:*",
-        semester: "النص بعد: *الفصل:*",
-        subject: "النص بعد: *📖 المادة:* وقبل الواصلة (-)",
-        grade: "النص بعد: *الصف:*",
-        teacherId: "النص بعد: *👨‍🏫 المعلم:*",
-        date: "النص بعد: *📅 التاريخ:*",
+        schoolName: "extract from: *🏫 المدرسة:*",
+        academicYear: "extract from: *🎓 العام الدراسي:*",
+        semester: "extract from: *الفصل:*",
+        subject: "extract from: *📖 المادة:* (before hyphen)",
+        grade: "extract from: *الصف:*",
+        teacherId: "extract from: *👨‍🏫 المعلم:*",
+        date: "extract from: *📅 التاريخ:*",
         branches: [{ 
-            branchName: "النص بعد: *📌 فرع:*", 
-            status: "استخرج حالة السير (map 'مطابق' to 'on_track')", 
-            lastLesson: "النص بعد: *✍️ آخر درس:*", 
-            lessonDifference: "عدد الدروس (الفارق) إن وجد" 
+            branchName: "from *📌 فرع:*", 
+            status: "from *الحالة:* (map 'مطابق'->'on_track')", 
+            lastLesson: "from *✍️ آخر درس:*"
         }],
-        meetingsAttended: "الرقم بعد: *اللقاءات التطويرية التي تم حضورها:*",
-        notebookCorrection: "الرقم بعد: *تصحيح الدفاتر:*",
-        preparationBook: "الرقم بعد: *دفتر التحضير:*",
-        questionsGlossary: "الرقم بعد: *مسرد الأسئلة نهاية دفتر التحضير:*",
-        strategiesImplemented: "القائمة النقطية تحت: *💡 الاستراتيجيات المستخدمة:*",
-        toolsUsed: "القائمة النقطية تحت: *🛠️ الوسائل المستخدمة:*",
-        sourcesUsed: "القائمة النقطية تحت: *📚 المصادر المستخدمة:*",
-        programsImplemented: "القائمة النقطية تحت: *💻 البرامج المنفذة:* (إن وجد)",
-        tasksDone: "القائمة النقطية تحت: *✅ التكاليف:* (إن وجد)",
-        testsDelivered: "القائمة النقطية تحت: *📄 الاختبارات التي تم تسليمها:*",
-        peerVisitsDone: "القائمة النقطية تحت: *🤝 الزيارات التبادلية:* (إن وجد)"
+        meetingsAttended: "count",
+        notebookCorrection: "from *تصحيح الدفاتر:*",
+        preparationBook: "from *دفتر التحضير:*",
+        questionsGlossary: "from *مسرد الأسئلة:*",
+        programsImplemented: "list under *💻 البرامج المنفذة:*",
+        strategiesImplemented: "list under *💡 الاستراتيجيات المستخدمة:*",
+        toolsUsed: "list under *🛠️ الوسائل المستخدمة:*",
+        sourcesUsed: "list under *📚 المصادر المستخدمة:*",
+        tasksDone: "list under *✅ التكاليف:*",
+        testsDelivered: "list under *📄 الاختبارات:*",
+        peerVisitsDone: "list under *🤝 الزيارات التبادلية:*"
     };
 
     const reportTitle = t('reportTitle')

@@ -66,38 +66,54 @@ const ImportDataSection: React.FC<ImportDataSectionProps> = ({ onDataParsed, for
 
         try {
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+            // The prompt is now engineered specifically for the user's provided format
             const prompt = `
-                You are a precise data extraction engine. Your job is to parse the "Report Text" and map it to the "Target Structure".
+                You are a data extraction engine tailored for Arabic Educational Reports.
                 
-                **CRITICAL EXTRACTION RULES:**
-                1. **Exact Matches:** Use the emojis and labels in the text as anchors. For example, if looking for "School", find the text after "*🏫 المدرسة:*".
-                2. **Branches Array:** The text contains repeated blocks for branches (e.g., *📌 فرع: إيمان*, *📌 فرع: حديث*). You MUST extract ALL of them into the 'branches' array. Do not miss any branch.
-                3. **Bullet Point Lists:** For fields like 'strategiesImplemented', 'toolsUsed', 'sourcesUsed', 'testsDelivered':
-                   - Look for the header (e.g., *💡 الاستراتيجيات المستخدمة:*).
-                   - Collect ALL lines immediately following it that start with a dash (-) or dot.
-                   - Join them into a single string separated by newlines.
-                4. **Status Mapping:** 
-                   - If text says "مطابق لخطة الوزارة" -> set 'status' to "on_track".
-                   - If text says "متقدم" -> set 'status' to "ahead".
-                   - If text says "متأخر" -> set 'status' to "behind".
-                5. **Numbers:** Remove '%' signs for percentage fields (e.g., convert "90%" to "90").
-                6. **Dates:** Format dates as YYYY-MM-DD.
-                
-                **Target Structure (JSON):**
+                **SOURCE TEXT TO ANALYZE:**
+                ---
+                ${text}
+                ---
+
+                **TARGET JSON STRUCTURE:**
                 ${JSON.stringify(formStructure, null, 2)}
 
-                **Report Text to Analyze:**
-                ${text}
+                **EXTRACTION RULES (Strictly Follow):**
+                1. **Anchors:** Use the emojis in the text to identify fields:
+                   - *👨‍🏫 المعلم:* -> teacherId (Extract name)
+                   - *🏫 المدرسة:* -> schoolName
+                   - *🎓 العام الدراسي:* -> academicYear
+                   - *📅 التاريخ:* -> date (Convert to YYYY-MM-DD, e.g., 2025-12-13)
+                   - *الفصل:* -> semester
+                   - *📖 المادة:* -> subject (Text BEFORE the hypen)
+                   - *الصف:* -> grade (Text AFTER the hyphen, remove parentheses like (رئيسي))
                 
-                **Output:**
-                Return ONLY valid JSON. No markdown, no explanations.
+                2. **Branches Extraction (*📌 فرع: ...*):**
+                   - The text contains multiple sections starting with *📌 فرع:*.
+                   - For EACH section found, create an object in the 'branches' array.
+                   - 'branchName': Text after *📌 فرع:*
+                   - 'status': Text after 🔵 *الحالة:* (Map 'مطابق' -> 'on_track', 'متقدم' -> 'ahead', 'متأخر' -> 'behind')
+                   - 'lastLesson': Text after *✍️ آخر درس:*
+                
+                3. **Lists Extraction (Bullet Points):**
+                   - For fields like 'programsImplemented' (*💻 البرامج المنفذة:*), 'strategiesImplemented' (*💡 الاستراتيجيات المستخدمة:*), 'toolsUsed' (*🛠️ الوسائل المستخدمة:*), 'sourcesUsed' (*📚 المصادر المستخدمة:*), 'tasksDone' (*✅ التكاليف:*), 'testsDelivered' (*📄 الاختبارات:*), 'peerVisitsDone' (*🤝 الزيارات التبادلية:*):
+                   - Capture ALL lines starting with "-" or "•" under the specific header.
+                   - Join them into a single string separated by newlines ("\n"). Do NOT return an array.
+                
+                4. **Quantitative Stats:**
+                   - *تصحيح الدفاتر:* -> notebookCorrection (Number only, remove %)
+                   - *دفتر التحضير:* -> preparationBook (Number only, remove %)
+                   - *مسرد الأسئلة:* -> questionsGlossary (Number only, remove %)
+
+                **OUTPUT:**
+                Return ONLY valid JSON. No markdown, no comments.
             `;
             
             const response: GenerateContentResponse = await ai.models.generateContent({
                 model: 'gemini-2.5-flash',
                 contents: prompt,
                  config: {
-                    temperature: 0.1, 
+                    temperature: 0.1, // Low temperature for high precision
                 }
             });
 
