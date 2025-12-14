@@ -359,6 +359,7 @@ const ReportEditor: React.FC<{
 
     const handleDataParsed = (data: any) => {
         // IMPORTANT: Extract ID to prevent overwriting the existing report's ID
+        // The AI might return an 'id' or we might accidentally spread it. We must protect the original ID.
         const { id, branches, ...otherData } = data;
         
         // --- 1. Resolve Teacher Name to ID ---
@@ -396,6 +397,8 @@ const ReportEditor: React.FC<{
         }
 
         // --- 4. Merge branches safely ---
+        // Instead of replacing the array, we check if new branches are provided.
+        // If provided, we try to merge or replace if it looks like a full update.
         let updatedBranches = report.branches;
         if (branches && Array.isArray(branches) && branches.length > 0) {
             updatedBranches = branches.map((b: any) => ({
@@ -412,6 +415,7 @@ const ReportEditor: React.FC<{
         const newReport = { 
             ...report, // Preserve all existing fields first
             ...otherData, // Overwrite with AI data (only what's provided)
+            id: report.id, // Explicitly keep the original ID
             teacherId: resolvedTeacherId, 
             branches: updatedBranches 
         };
