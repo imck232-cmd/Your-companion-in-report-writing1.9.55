@@ -141,7 +141,7 @@ const ImportDataSection: React.FC<ImportDataSectionProps> = ({ onDataParsed, for
             <textarea
                 value={text}
                 onChange={(e) => setText(e.target.value)}
-                className="w-full p-2 border rounded-md h-32 focus:ring-2 focus:ring-indigo-400 text-sm font-mono"
+                className="w-full p-2 border rounded-md h-32 focus:ring-2 focus:ring-indigo-400 text-base font-mono"
                 placeholder="ألصق النص هنا (مثال: *📊 تقرير السير في المنهج* ...)"
             />
             <div className="flex items-center gap-4">
