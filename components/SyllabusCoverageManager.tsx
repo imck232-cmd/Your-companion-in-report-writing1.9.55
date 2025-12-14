@@ -210,7 +210,7 @@ const ReportEditor: React.FC<{
         onUpdate({ ...report, [field]: value });
     };
 
-    // Excel Import Logic - Enhanced to read specific layout AND capture all fields
+    // Excel Import Logic
     const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -228,7 +228,6 @@ const ReportEditor: React.FC<{
                     const updatedReport = { ...report };
                     let branches: SyllabusBranchProgress[] = [];
                     
-                    // Helper to find value by loosely matching keys in the first cell of a row
                     const findValue = (key: string) => {
                         for (let i = 0; i < data.length; i++) {
                             const row = data[i] as any[];
@@ -239,7 +238,6 @@ const ReportEditor: React.FC<{
                         return null;
                     };
 
-                    // --- Header Data ---
                     const teacherName = findValue('المعلم');
                     if (teacherName) updatedReport.teacherId = allTeachers.find(t => t.name === teacherName)?.id || report.teacherId;
                     
@@ -262,9 +260,6 @@ const ReportEditor: React.FC<{
                     if (semester && (semester.includes('الأول') || semester.includes('1'))) updatedReport.semester = 'الأول';
                     else if (semester && (semester.includes('الثاني') || semester.includes('2'))) updatedReport.semester = 'الثاني';
 
-
-                    // --- Branch Data Parsing ---
-                    // Find the row where branch headers start
                     let branchHeaderRowIndex = -1;
                     for(let i=0; i<data.length; i++) {
                         const row = data[i] as any[];
@@ -275,18 +270,15 @@ const ReportEditor: React.FC<{
                     }
 
                     if(branchHeaderRowIndex !== -1) {
-                        // Iterate rows below header until empty row or new section
                         for(let i = branchHeaderRowIndex + 1; i < data.length; i++) {
                             const row = data[i] as any[];
-                            if(!row[0]) break; // Stop at empty line
+                            if(!row[0]) break; 
                             
-                            // Expecting columns: BranchName | StatusText | LastLesson | Diff
                             const branchName = row[0];
                             const statusText = row[1];
                             const lastLesson = row[2];
                             const diff = row[3];
 
-                            // Map status text back to key
                             let status: SyllabusBranchProgress['status'] = 'not_set';
                             if(String(statusText).includes(t('statusAhead'))) status = 'ahead';
                             else if(String(statusText).includes(t('statusBehind'))) status = 'behind';
@@ -303,9 +295,6 @@ const ReportEditor: React.FC<{
                         if(branches.length > 0) updatedReport.branches = branches;
                     }
 
-
-                    // --- Stats ---
-                    // Using findValue with localized keys ensures robustness
                     const meetings = findValue(t('meetingsAttended')) || findValue('اللقاءات');
                     if(meetings) updatedReport.meetingsAttended = String(meetings);
                     
@@ -318,7 +307,6 @@ const ReportEditor: React.FC<{
                     const glos = findValue(t('questionsGlossary')) || findValue('مسرد');
                     if(glos) updatedReport.questionsGlossary = String(glos).replace('%', '').trim();
 
-                    // --- Qualitative ---
                     const strats = findValue(t('strategiesUsed')) || findValue('الاستراتيجيات');
                     if(strats) updatedReport.strategiesImplemented = strats;
                     
@@ -359,7 +347,6 @@ const ReportEditor: React.FC<{
 
     const handleDataParsed = (data: any) => {
         // IMPORTANT: Extract ID to prevent overwriting the existing report's ID
-        // The AI might return an 'id' or we might accidentally spread it. We must protect the original ID.
         const { id, branches, ...otherData } = data;
         
         // --- 1. Resolve Teacher Name to ID ---
@@ -374,7 +361,6 @@ const ReportEditor: React.FC<{
             if (found) {
                 resolvedTeacherId = found.id;
             } else if (allTeachers.find(t => t.id === incomingTeacherIdentifier)) {
-                // If it happened to be a valid ID
                 resolvedTeacherId = incomingTeacherIdentifier;
             }
         }
@@ -382,7 +368,6 @@ const ReportEditor: React.FC<{
         // --- 2. Sanitize Percentages (Remove % and text) ---
         const sanitizeNumberString = (val: any) => {
             if (!val) return '';
-            // Remove everything except digits
             return String(val).replace(/[^0-9]/g, '');
         };
 
@@ -392,13 +377,10 @@ const ReportEditor: React.FC<{
 
         // --- 3. Sanitize Grade (Remove 'الصف') ---
         if (otherData.grade) {
-            // Remove 'الصف' prefix if present to match dropdown values like "الأول"
             otherData.grade = String(otherData.grade).replace('الصف', '').trim();
         }
 
         // --- 4. Merge branches safely ---
-        // Instead of replacing the array, we check if new branches are provided.
-        // If provided, we try to merge or replace if it looks like a full update.
         let updatedBranches = report.branches;
         if (branches && Array.isArray(branches) && branches.length > 0) {
             updatedBranches = branches.map((b: any) => ({
@@ -410,8 +392,6 @@ const ReportEditor: React.FC<{
             }));
         }
 
-        // Use functional state update to ensure we don't lose current state if multiple updates happen
-        // But since onUpdate replaces the object in the parent array, we create a new object based on 'report'
         const newReport = { 
             ...report, // Preserve all existing fields first
             ...otherData, // Overwrite with AI data (only what's provided)
@@ -424,27 +404,32 @@ const ReportEditor: React.FC<{
         setShowAIImport(false);
     };
 
-    // Improved prompt structure to guide AI better
+    // Improved prompt structure to guide AI better - Using Descriptive Values
     const formStructureForAI = {
-        schoolName: report.schoolName || 'اسم المدرسة',
-        academicYear: report.academicYear || 'العام الدراسي (مثل: 2024-2025)',
-        semester: report.semester || 'الفصل الدراسي',
-        subject: report.subject || 'المادة',
-        grade: report.grade || 'الصف (مثال: الأول، الثاني...)',
-        teacherId: 'اسم المعلم', // Hint changed to explicitly ask for Name
-        date: 'التاريخ (YYYY-MM-DD)',
-        branches: [{ branchName: 'اسم الفرع (مثل: نحو، أدب...)', status: 'ahead/behind/on_track', lastLesson: 'عنوان الدرس', lessonDifference: 'عدد الدروس' }],
-        meetingsAttended: 'عدد اللقاءات',
-        notebookCorrection: 'نسبة تصحيح الدفاتر (رقم فقط)',
-        preparationBook: 'نسبة إعداد دفتر التحضير (رقم فقط)',
-        questionsGlossary: 'نسبة مسرد الأسئلة (رقم فقط)',
-        programsImplemented: 'البرامج المنفذة',
-        strategiesImplemented: 'الاستراتيجيات المنفذة',
-        toolsUsed: 'الوسائل المستخدمة',
-        sourcesUsed: 'المصادر المستخدمة',
-        tasksDone: 'التكاليف المنجزة',
-        testsDelivered: 'الاختبارات المسلمة',
-        peerVisitsDone: 'الزيارات التبادلية'
+        schoolName: "استخرج اسم المدرسة",
+        academicYear: "استخرج العام الدراسي (مثال: 2024-2025)",
+        semester: "استخرج الفصل الدراسي (الأول أو الثاني)",
+        subject: "استخرج اسم المادة",
+        grade: "استخرج الصف الدراسي (مثال: الأول، الثاني...)",
+        teacherId: "استخرج اسم المعلم بدقة",
+        date: "استخرج التاريخ بتنسيق YYYY-MM-DD",
+        branches: [{ 
+            branchName: "اسم الفرع (مثال: نحو، أدب، أو اسم المادة إذا لم يوجد فروع)", 
+            status: "استخرج حالة السير (ahead/behind/on_track)", 
+            lastLesson: "عنوان آخر درس تم تدريسه", 
+            lessonDifference: "عدد الدروس (الفارق) إن وجد" 
+        }],
+        meetingsAttended: "عدد اللقاءات التربوية التي حضرها (رقم فقط)",
+        notebookCorrection: "نسبة تصحيح الدفاتر (رقم فقط من 0 إلى 100)",
+        preparationBook: "نسبة إنجاز دفتر التحضير (رقم فقط من 0 إلى 100)",
+        questionsGlossary: "نسبة إنجاز مسرد الأسئلة (رقم فقط من 0 إلى 100)",
+        programsImplemented: "اذكر البرامج المنفذة (قائمة نصية)",
+        strategiesImplemented: "اذكر الاستراتيجيات المنفذة (قائمة نصية)",
+        toolsUsed: "اذكر الوسائل التعليمية المستخدمة (قائمة نصية)",
+        sourcesUsed: "اذكر مصادر التعلم المستخدمة (قائمة نصية)",
+        tasksDone: "اذكر التكاليف والواجبات المنجزة",
+        testsDelivered: "اذكر الاختبارات التي تم تسليمها",
+        peerVisitsDone: "اذكر الزيارات التبادلية التي قام بها المعلم"
     };
 
     const reportTitle = t('reportTitle')
