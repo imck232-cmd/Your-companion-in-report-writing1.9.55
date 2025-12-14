@@ -67,36 +67,37 @@ const ImportDataSection: React.FC<ImportDataSectionProps> = ({ onDataParsed, for
         try {
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
             const prompt = `
-                You are a highly accurate data extraction engine specifically for Arabic educational reports.
+                You are a precise data extraction engine. Your job is to parse the "Report Text" and map it to the "Target Structure".
                 
-                **Task:**
-                Extract data from the provided "Report Text" and map it to the fields in the "Target Structure".
+                **CRITICAL EXTRACTION RULES:**
+                1. **Exact Matches:** Use the emojis and labels in the text as anchors. For example, if looking for "School", find the text after "*🏫 المدرسة:*".
+                2. **Branches Array:** The text contains repeated blocks for branches (e.g., *📌 فرع: إيمان*, *📌 فرع: حديث*). You MUST extract ALL of them into the 'branches' array. Do not miss any branch.
+                3. **Bullet Point Lists:** For fields like 'strategiesImplemented', 'toolsUsed', 'sourcesUsed', 'testsDelivered':
+                   - Look for the header (e.g., *💡 الاستراتيجيات المستخدمة:*).
+                   - Collect ALL lines immediately following it that start with a dash (-) or dot.
+                   - Join them into a single string separated by newlines.
+                4. **Status Mapping:** 
+                   - If text says "مطابق لخطة الوزارة" -> set 'status' to "on_track".
+                   - If text says "متقدم" -> set 'status' to "ahead".
+                   - If text says "متأخر" -> set 'status' to "behind".
+                5. **Numbers:** Remove '%' signs for percentage fields (e.g., convert "90%" to "90").
+                6. **Dates:** Format dates as YYYY-MM-DD.
                 
-                **Rules:**
-                1. **Exact Extraction:** Look for values corresponding to the descriptions provided in the "Target Structure" values.
-                2. **Numbers Only:** For fields asking for percentages or counts (like correction, preparation, meetings), extract ONLY the number. Remove '%' signs or words like 'lessons'.
-                3. **Text Fields:** For lists (strategies, tools), extract them as a single string. If multiple items, separate them with newlines or commas.
-                4. **Teacher Name:** Identify the teacher's name accurately.
-                5. **JSON Output:** Return ONLY a valid, parseable JSON object. NO Markdown formatting, NO comments, NO extra text.
-
-                **Target Structure (Keys are field names, Values are descriptions of what to find):**
-                ---
+                **Target Structure (JSON):**
                 ${JSON.stringify(formStructure, null, 2)}
-                ---
 
                 **Report Text to Analyze:**
-                ---
                 ${text}
-                ---
+                
+                **Output:**
+                Return ONLY valid JSON. No markdown, no explanations.
             `;
             
             const response: GenerateContentResponse = await ai.models.generateContent({
                 model: 'gemini-2.5-flash',
                 contents: prompt,
                  config: {
-                    // We remove responseMimeType: "application/json" to avoid strict schema constraints 
-                    // that might conflict with the 'any' structure, relying on prompt engineering instead.
-                    temperature: 0.1, // Lower temperature for more deterministic results
+                    temperature: 0.1, 
                 }
             });
 

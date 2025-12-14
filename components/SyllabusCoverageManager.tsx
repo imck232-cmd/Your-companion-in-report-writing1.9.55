@@ -377,14 +377,19 @@ const ReportEditor: React.FC<{
 
         // --- 3. Sanitize Grade (Remove 'الصف') ---
         if (otherData.grade) {
-            otherData.grade = String(otherData.grade).replace('الصف', '').trim();
+            otherData.grade = String(otherData.grade).replace('الصف', '').replace(':', '').trim();
+        }
+        
+        // --- 4. Sanitize Subject (Remove 'المادة') ---
+        if (otherData.subject) {
+            otherData.subject = String(otherData.subject).replace('المادة', '').replace(':', '').trim();
         }
 
-        // --- 4. Merge branches safely ---
+        // --- 5. Merge branches safely ---
         let updatedBranches = report.branches;
         if (branches && Array.isArray(branches) && branches.length > 0) {
             updatedBranches = branches.map((b: any) => ({
-                branchName: b.branchName || '',
+                branchName: b.branchName ? String(b.branchName).replace('فرع:', '').trim() : '',
                 status: ['ahead', 'on_track', 'behind', 'not_set'].includes(b.status) ? b.status : 'not_set',
                 lastLesson: b.lastLesson || '',
                 lessonDifference: b.lessonDifference || '',
@@ -404,32 +409,32 @@ const ReportEditor: React.FC<{
         setShowAIImport(false);
     };
 
-    // Improved prompt structure to guide AI better - Using Descriptive Values
+    // Improved prompt structure to guide AI better - Using Descriptive Values matched to user text
     const formStructureForAI = {
-        schoolName: "استخرج اسم المدرسة",
-        academicYear: "استخرج العام الدراسي (مثال: 2024-2025)",
-        semester: "استخرج الفصل الدراسي (الأول أو الثاني)",
-        subject: "استخرج اسم المادة",
-        grade: "استخرج الصف الدراسي (مثال: الأول، الثاني...)",
-        teacherId: "استخرج اسم المعلم بدقة",
-        date: "استخرج التاريخ بتنسيق YYYY-MM-DD",
+        schoolName: "النص بعد: *🏫 المدرسة:*",
+        academicYear: "النص بعد: *🎓 العام الدراسي:*",
+        semester: "النص بعد: *الفصل:*",
+        subject: "النص بعد: *📖 المادة:* وقبل الواصلة (-)",
+        grade: "النص بعد: *الصف:*",
+        teacherId: "النص بعد: *👨‍🏫 المعلم:*",
+        date: "النص بعد: *📅 التاريخ:*",
         branches: [{ 
-            branchName: "اسم الفرع (مثال: نحو، أدب، أو اسم المادة إذا لم يوجد فروع)", 
-            status: "استخرج حالة السير (ahead/behind/on_track)", 
-            lastLesson: "عنوان آخر درس تم تدريسه", 
+            branchName: "النص بعد: *📌 فرع:*", 
+            status: "استخرج حالة السير (map 'مطابق' to 'on_track')", 
+            lastLesson: "النص بعد: *✍️ آخر درس:*", 
             lessonDifference: "عدد الدروس (الفارق) إن وجد" 
         }],
-        meetingsAttended: "عدد اللقاءات التربوية التي حضرها (رقم فقط)",
-        notebookCorrection: "نسبة تصحيح الدفاتر (رقم فقط من 0 إلى 100)",
-        preparationBook: "نسبة إنجاز دفتر التحضير (رقم فقط من 0 إلى 100)",
-        questionsGlossary: "نسبة إنجاز مسرد الأسئلة (رقم فقط من 0 إلى 100)",
-        programsImplemented: "اذكر البرامج المنفذة (قائمة نصية)",
-        strategiesImplemented: "اذكر الاستراتيجيات المنفذة (قائمة نصية)",
-        toolsUsed: "اذكر الوسائل التعليمية المستخدمة (قائمة نصية)",
-        sourcesUsed: "اذكر مصادر التعلم المستخدمة (قائمة نصية)",
-        tasksDone: "اذكر التكاليف والواجبات المنجزة",
-        testsDelivered: "اذكر الاختبارات التي تم تسليمها",
-        peerVisitsDone: "اذكر الزيارات التبادلية التي قام بها المعلم"
+        meetingsAttended: "الرقم بعد: *اللقاءات التطويرية التي تم حضورها:*",
+        notebookCorrection: "الرقم بعد: *تصحيح الدفاتر:*",
+        preparationBook: "الرقم بعد: *دفتر التحضير:*",
+        questionsGlossary: "الرقم بعد: *مسرد الأسئلة نهاية دفتر التحضير:*",
+        strategiesImplemented: "القائمة النقطية تحت: *💡 الاستراتيجيات المستخدمة:*",
+        toolsUsed: "القائمة النقطية تحت: *🛠️ الوسائل المستخدمة:*",
+        sourcesUsed: "القائمة النقطية تحت: *📚 المصادر المستخدمة:*",
+        programsImplemented: "القائمة النقطية تحت: *💻 البرامج المنفذة:* (إن وجد)",
+        tasksDone: "القائمة النقطية تحت: *✅ التكاليف:* (إن وجد)",
+        testsDelivered: "القائمة النقطية تحت: *📄 الاختبارات التي تم تسليمها:*",
+        peerVisitsDone: "القائمة النقطية تحت: *🤝 الزيارات التبادلية:* (إن وجد)"
     };
 
     const reportTitle = t('reportTitle')
@@ -884,7 +889,7 @@ const SyllabusCoverageManager: React.FC<SyllabusCoverageManagerProps> = ({
                         {viewMode === 'table' ? (
                             <><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" /></svg> عرض القائمة</>
                         ) : (
-                            <><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" /></svg> عرض الجدول (فلترة)</>
+                            <><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" /></svg> عرض الجدول (فلترة)</>
                         )}
                     </button>
                     <button onClick={handleAddReportWithExpand} className="px-4 py-2 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2">
