@@ -347,22 +347,20 @@ const ReportEditor: React.FC<{
 
     const handleDataParsed = (data: any) => {
         // IMPORTANT: Extract ID to prevent overwriting the existing report's ID
-        // We explicitly destructure `id` and IGNORE it from the incoming data
-        const { id, branches, ...otherData } = data;
+        // We explicitly destructure `id` and `teacherId` to control them manually
+        const { id, teacherId, branches, ...otherData } = data;
         
-        // --- 1. Resolve Teacher Name to ID ---
         let resolvedTeacherId = report.teacherId;
-        // Check if AI returned a teacherId (often it returns the name here per prompt instruction)
-        const incomingTeacherIdentifier = otherData.teacherId;
         
-        if (incomingTeacherIdentifier) {
-            // Fuzzy search for teacher name
-            const nameToSearch = String(incomingTeacherIdentifier).trim();
+        // Only update teacher ID if the current report hasn't been assigned a teacher yet
+        // This prevents the report from "jumping" to another teacher list and disappearing
+        if (!report.teacherId && teacherId) {
+            const nameToSearch = String(teacherId).trim();
             const found = allTeachers.find(t => t.name.includes(nameToSearch) || nameToSearch.includes(t.name));
             if (found) {
                 resolvedTeacherId = found.id;
-            } else if (allTeachers.find(t => t.id === incomingTeacherIdentifier)) {
-                resolvedTeacherId = incomingTeacherIdentifier;
+            } else if (allTeachers.find(t => t.id === teacherId)) {
+                resolvedTeacherId = teacherId;
             }
         }
 
@@ -376,25 +374,15 @@ const ReportEditor: React.FC<{
         if (otherData.preparationBook) otherData.preparationBook = sanitizeNumberString(otherData.preparationBook);
         if (otherData.questionsGlossary) otherData.questionsGlossary = sanitizeNumberString(otherData.questionsGlossary);
 
-        // --- 3. Sanitize Grade (Remove 'الصف' and specific words) ---
+        // --- 3. Sanitize Grade & Subject ---
         if (otherData.grade) {
-            otherData.grade = String(otherData.grade)
-                .replace('الصف', '')
-                .replace(':', '')
-                .replace('(رئيسي)', '') // Clean up common extra text in user input
-                .trim();
+            otherData.grade = String(otherData.grade).replace('الصف', '').replace(':', '').replace('(رئيسي)', '').trim();
         }
-        
-        // --- 4. Sanitize Subject (Remove 'المادة') ---
         if (otherData.subject) {
-            otherData.subject = String(otherData.subject)
-                .replace('المادة', '')
-                .replace(':', '')
-                .split('-')[0] // Sometimes user input has "Subject - Grade"
-                .trim();
+            otherData.subject = String(otherData.subject).replace('المادة', '').replace(':', '').split('-')[0].trim();
         }
 
-        // --- 5. Merge branches safely ---
+        // --- 4. Merge branches safely ---
         let updatedBranches = report.branches;
         if (branches && Array.isArray(branches) && branches.length > 0) {
             updatedBranches = branches.map((b: any) => ({
@@ -406,7 +394,7 @@ const ReportEditor: React.FC<{
             }));
         }
 
-        // --- 6. Construct New Report (CRITICAL: PRESERVE ID) ---
+        // --- 5. Construct New Report (CRITICAL: PRESERVE ID & TEACHERID) ---
         const newReport: SyllabusCoverageReport = { 
             ...report, // Preserve all existing fields first
             ...otherData, // Overwrite with AI data (only what's provided)
@@ -419,7 +407,7 @@ const ReportEditor: React.FC<{
         setShowAIImport(false);
     };
 
-    // Improved prompt structure to guide AI better - Using Descriptive Values matched to user text
+    // Prompt structure matched exactly to the User's provided text format
     const formStructureForAI = {
         schoolName: "extract from: *🏫 المدرسة:*",
         academicYear: "extract from: *🎓 العام الدراسي:*",
@@ -682,365 +670,159 @@ const ReportEditor: React.FC<{
     );
 };
 
-const SyllabusCoverageManager: React.FC<SyllabusCoverageManagerProps> = ({
-    reports,
-    setReports,
-    school,
-    academicYear,
-    semester,
-    allTeachers,
+const SyllabusCoverageManager: React.FC<SyllabusCoverageManagerProps> = ({ 
+    reports, 
+    setReports, 
+    school, 
+    academicYear, 
+    semester, 
+    allTeachers 
 }) => {
     const { t } = useLanguage();
-    const { currentUser } = useAuth();
-    
-    // View state: 'list' (default, cards) or 'table' (new filterable view)
-    const [viewMode, setViewMode] = useState<'list' | 'table'>('list');
-    
-    // Filtering states
-    const [filterTeacher, setFilterTeacher] = useState('all');
-    const [filterSubject, setFilterSubject] = useState('all');
-    const [filterGrade, setFilterGrade] = useState('all');
-    const [sortKey, setSortKey] = useState<'date' | 'percentage_high' | 'percentage_low' | 'ahead' | 'behind'>('date');
-    const [selectedReportIds, setSelectedReportIds] = useState<Set<string>>(new Set());
+    const [searchTerm, setSearchTerm] = useState('');
+    const [selectedReports, setSelectedReports] = useState<string[]>([]);
+    const [collapsedReports, setCollapsedReports] = useState<Set<string>>(new Set());
     const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
 
-    // Expansion state for list view
-    const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+    const handleUpdateReport = (updatedReport: SyllabusCoverageReport) => {
+        setReports(prev => prev.map(r => r.id === updatedReport.id ? updatedReport : r));
+    };
 
-    // Teacher Map
-    const teacherMap = useMemo(() => new Map(allTeachers.map(t => [t.id, t.name])), [allTeachers]);
-
-    useEffect(() => {
-        // Expand the most recent report by default in list view if newly added
-        if (viewMode === 'list' && reports.length > 0 && expandedIds.size === 0) {
-             // Optional: Expand first report on load
+    const handleDeleteReport = (reportId: string) => {
+        if(window.confirm(t('confirmDelete'))) {
+            setReports(prev => prev.filter(r => r.id !== reportId));
         }
-    }, [viewMode, reports.length]); 
+    };
 
-    const handleAddReportWithExpand = () => {
+    const handleToggleCollapse = (reportId: string) => {
+        setCollapsedReports(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(reportId)) newSet.delete(reportId);
+            else newSet.add(reportId);
+            return newSet;
+        });
+    };
+
+    const handleAddNewReport = () => {
         const newReport: SyllabusCoverageReport = {
             id: `scr-${Date.now()}`,
             schoolName: school,
             academicYear: academicYear,
             semester: semester,
-            teacherId: '',
             subject: '',
             grade: '',
+            branches: [],
+            teacherId: '',
             branch: 'main',
             date: new Date().toISOString().split('T')[0],
-            branches: [],
         };
         setReports(prev => [newReport, ...prev]);
-        setExpandedIds(prev => new Set(prev).add(newReport.id));
-        setViewMode('list'); // Switch to list view to edit the new report
     };
 
-    const handleUpdateReport = (updated: SyllabusCoverageReport) => {
-        setReports(prev => prev.map(r => r.id === updated.id ? updated : r));
-    };
+    const teacherMap = useMemo(() => new Map(allTeachers.map(t => [t.id, t.name])), [allTeachers]);
 
-    const handleDeleteReport = (id: string) => {
-        if(window.confirm(t('confirmDelete'))) {
-            setReports(prev => prev.filter(r => r.id !== id));
-            setSelectedReportIds(prev => {
-                const newSet = new Set(prev);
-                newSet.delete(id);
-                return newSet;
+    const filteredReports = useMemo(() => {
+        let filtered = reports;
+        if (searchTerm) {
+            const lowerTerm = searchTerm.toLowerCase();
+            filtered = filtered.filter(r => {
+                const teacherName = teacherMap.get(r.teacherId) || '';
+                return teacherName.toLowerCase().includes(lowerTerm) || 
+                       r.subject.toLowerCase().includes(lowerTerm) ||
+                       r.grade.toLowerCase().includes(lowerTerm);
             });
         }
+        return filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    }, [reports, searchTerm, teacherMap]);
+
+    const handleSelectReport = (reportId: string) => {
+        setSelectedReports(prev => prev.includes(reportId) ? prev.filter(id => id !== reportId) : [...prev, reportId]);
     };
 
-    const toggleExpand = (id: string) => {
-        setExpandedIds(prev => {
-            const newSet = new Set(prev);
-            if(newSet.has(id)) newSet.delete(id);
-            else newSet.add(id);
-            return newSet;
-        });
-    };
-
-    const handleSelectReport = (id: string) => {
-        setSelectedReportIds(prev => {
-            const newSet = new Set(prev);
-            if (newSet.has(id)) newSet.delete(id);
-            else newSet.add(id);
-            return newSet;
-        });
-    };
-
-    const handleSelectAll = (filteredIds: string[]) => {
-        if (selectedReportIds.size === filteredIds.length && filteredIds.length > 0) {
-            setSelectedReportIds(new Set());
+    const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.checked) {
+            setSelectedReports(filteredReports.map(r => r.id));
         } else {
-            setSelectedReportIds(new Set(filteredIds));
+            setSelectedReports([]);
         }
     };
 
-    // --- Computed Filtered Reports ---
-    const filteredReports = useMemo(() => {
-        let result = [...reports];
-
-        if (filterTeacher !== 'all') {
-            result = result.filter(r => r.teacherId === filterTeacher);
-        }
-        if (filterSubject !== 'all') {
-            result = result.filter(r => r.subject === filterSubject);
-        }
-        if (filterGrade !== 'all') {
-            result = result.filter(r => r.grade === filterGrade);
-        }
-
-        return result.sort((a, b) => {
-            switch (sortKey) {
-                case 'date': 
-                    return new Date(b.date).getTime() - new Date(a.date).getTime();
-                case 'percentage_high':
-                    return calculateOverallPercentage(b) - calculateOverallPercentage(a);
-                case 'percentage_low':
-                    return calculateOverallPercentage(a) - calculateOverallPercentage(b);
-                case 'ahead': {
-                    const statusA = getReportStatus(a);
-                    const statusB = getReportStatus(b);
-                    if (statusA === 'ahead' && statusB !== 'ahead') return -1;
-                    if (statusB === 'ahead' && statusA !== 'ahead') return 1;
-                    return 0;
-                }
-                case 'behind': {
-                    const statusA = getReportStatus(a);
-                    const statusB = getReportStatus(b);
-                    if (statusA === 'behind' && statusB !== 'behind') return -1;
-                    if (statusB === 'behind' && statusA !== 'behind') return 1;
-                    return 0;
-                }
-                default: return 0;
-            }
-        });
-    }, [reports, filterTeacher, filterSubject, filterGrade, sortKey]);
-
-    // --- Bulk Export Logic ---
-    const handleBulkExcelExport = () => {
-        const reportsToExport = selectedReportIds.size > 0 
-            ? reports.filter(r => selectedReportIds.has(r.id)) 
-            : filteredReports;
-
-        if (reportsToExport.length === 0) {
-            alert('لا توجد تقارير للتصدير.');
-            return;
-        }
-
-        const data = reportsToExport.map(r => {
-            const status = getReportStatus(r);
-            let statusText = 'مطابق';
-            if (status === 'ahead') statusText = 'متقدم';
-            if (status === 'behind') statusText = 'متأخر';
-
-            // Find max branch diff
-            let maxDiff = '';
-            if (r.branches) {
-                const diffs = r.branches.filter(b => b.lessonDifference).map(b => b.lessonDifference);
-                if(diffs.length > 0) maxDiff = diffs.join(', ');
-            }
-
-            return {
-                'المعلم': teacherMap.get(r.teacherId) || r.teacherId,
-                'المادة': r.subject,
-                'الصف': r.grade,
-                'التاريخ': new Date(r.date).toLocaleDateString(),
-                'حالة السير': statusText,
-                'الفارق (دروس)': maxDiff,
-                'اللقاءات': r.meetingsAttended || '0',
-                'تصحيح الدفاتر %': r.notebookCorrection || '0',
-                'دفتر التحضير %': r.preparationBook || '0',
-                'مسرد الأسئلة %': r.questionsGlossary || '0',
-            };
-        });
-
-        const ws = XLSX.utils.json_to_sheet(data);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Syllabus Summary");
-        XLSX.writeFile(wb, `syllabus_summary_${new Date().toISOString().split('T')[0]}.xlsx`);
-    };
-
-    const handleViewReportFromTable = (id: string) => {
-        // Expand the report and switch to list view
-        setExpandedIds(new Set([id]));
-        setViewMode('list');
-        // Scroll to top? (optional)
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    };
+    const selectedReportsObjects = useMemo(() => 
+        reports.filter(r => selectedReports.includes(r.id))
+    , [reports, selectedReports]);
 
     return (
         <div className="space-y-6">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                <h2 className="text-2xl font-bold text-primary">{t('syllabusCoverageReport')}</h2>
+                <button onClick={handleAddNewReport} className="px-4 py-2 bg-primary text-white font-bold rounded-lg hover:bg-opacity-90">
+                    + {t('addNewSyllabusReport')}
+                </button>
+            </div>
+            
+            <div className="bg-white p-4 rounded-lg shadow border flex flex-col md:flex-row gap-4 items-center justify-between">
+                <input 
+                    type="text" 
+                    placeholder={t('searchForTeacher')} 
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                    className="p-2 border rounded w-full md:w-64"
+                />
+                
+                <div className="flex items-center gap-4">
+                    <label className="flex items-center gap-2">
+                        <input type="checkbox" checked={selectedReports.length === filteredReports.length && filteredReports.length > 0} onChange={handleSelectAll} />
+                        {t('selectAll')}
+                    </label>
+                    
+                    {selectedReports.length > 0 && (
+                        <button 
+                            onClick={() => setShowWhatsAppModal(true)}
+                            className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 text-sm font-bold flex items-center gap-1"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.894 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.886-.001 2.267.651 4.383 1.905 6.25l-.275 1.002 1.03 1.018z"/></svg>
+                            إرسال المحدد ({selectedReports.length})
+                        </button>
+                    )}
+                </div>
+            </div>
+
             {showWhatsAppModal && (
                 <WhatsAppBulkModal 
-                    selectedReports={selectedReportIds.size > 0 
-                        ? reports.filter(r => selectedReportIds.has(r.id))
-                        : filteredReports
-                    }
+                    selectedReports={selectedReportsObjects}
                     allTeachers={allTeachers}
                     onClose={() => setShowWhatsAppModal(false)}
                     t={t}
                 />
             )}
 
-            <div className="flex flex-wrap justify-between items-center bg-white p-4 rounded-lg shadow-sm border gap-4">
-                <div className="flex items-center gap-2">
-                    <h2 className="text-2xl font-bold text-primary">{t('syllabusCoverageReport')}</h2>
-                    <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                        {reports.length} تقرير
-                    </span>
-                </div>
-                <div className="flex gap-2">
-                    <button 
-                        onClick={() => setViewMode(viewMode === 'list' ? 'table' : 'list')}
-                        className={`px-4 py-2 rounded-lg font-bold transition-colors flex items-center gap-2 ${viewMode === 'table' ? 'bg-primary text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-                    >
-                        {viewMode === 'table' ? (
-                            <><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" /></svg> عرض القائمة</>
-                        ) : (
-                            <><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" /></svg> عرض الجدول (فلترة)</>
-                        )}
-                    </button>
-                    <button onClick={handleAddReportWithExpand} className="px-4 py-2 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2">
-                        <span>+</span> {t('addNewSyllabusReport')}
-                    </button>
-                </div>
-            </div>
-            
-            {viewMode === 'table' ? (
-                <div className="bg-white p-4 rounded-lg shadow-lg border border-gray-200">
-                    {/* Filters Bar */}
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-                        <select value={filterTeacher} onChange={e => setFilterTeacher(e.target.value)} className="p-2 border rounded">
-                            <option value="all">كل المعلمين</option>
-                            {allTeachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                        </select>
-                        <select value={filterSubject} onChange={e => setFilterSubject(e.target.value)} className="p-2 border rounded">
-                            <option value="all">كل المواد</option>
-                            {SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}
-                        </select>
-                        <select value={filterGrade} onChange={e => setFilterGrade(e.target.value)} className="p-2 border rounded">
-                            <option value="all">كل الصفوف</option>
-                            {GRADES.map(g => <option key={g} value={g}>{g}</option>)}
-                        </select>
-                        <select value={sortKey} onChange={e => setSortKey(e.target.value as any)} className="p-2 border rounded">
-                            <option value="date">حسب التاريخ (الأحدث)</option>
-                            <option value="percentage_high">الأعلى إنجازاً</option>
-                            <option value="percentage_low">الأقل إنجازاً</option>
-                            <option value="ahead">المتقدمون في المنهج</option>
-                            <option value="behind">المتأخرون في المنهج</option>
-                        </select>
-                    </div>
-
-                    {/* Table */}
-                    <div className="overflow-x-auto rounded-lg border">
-                        <table className="w-full text-sm text-right">
-                            <thead className="bg-gray-100 text-gray-700 uppercase">
-                                <tr>
-                                    <th className="p-3 w-10 text-center">
-                                        <input 
-                                            type="checkbox" 
-                                            onChange={(e) => handleSelectAll(e.target.checked ? filteredReports.map(r => r.id) : [])}
-                                            checked={filteredReports.length > 0 && selectedReportIds.size === filteredReports.length}
-                                        />
-                                    </th>
-                                    <th className="p-3">{t('teacherName')}</th>
-                                    <th className="p-3">{t('subject')}</th>
-                                    <th className="p-3">{t('grade')}</th>
-                                    <th className="p-3 text-center">{t('date')}</th>
-                                    <th className="p-3 text-center">الحالة</th>
-                                    <th className="p-3 text-center">الإجراءات</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-200">
-                                {filteredReports.map(report => {
-                                    const status = getReportStatus(report);
-                                    let statusBadge = <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded">مطابق</span>;
-                                    if (status === 'ahead') statusBadge = <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded">متقدم</span>;
-                                    if (status === 'behind') statusBadge = <span className="bg-red-100 text-red-800 px-2 py-1 rounded">متأخر</span>;
-
-                                    return (
-                                        <tr key={report.id} className="hover:bg-gray-50 transition-colors">
-                                            <td className="p-3 text-center">
-                                                <input 
-                                                    type="checkbox" 
-                                                    checked={selectedReportIds.has(report.id)}
-                                                    onChange={() => handleSelectReport(report.id)}
-                                                />
-                                            </td>
-                                            <td className="p-3 font-medium text-gray-900">{teacherMap.get(report.teacherId) || 'غير معروف'}</td>
-                                            <td className="p-3">{report.subject}</td>
-                                            <td className="p-3">{report.grade}</td>
-                                            <td className="p-3 text-center">{new Date(report.date).toLocaleDateString()}</td>
-                                            <td className="p-3 text-center">{statusBadge}</td>
-                                            <td className="p-3 text-center">
-                                                <button 
-                                                    onClick={() => handleViewReportFromTable(report.id)}
-                                                    className="text-blue-600 hover:underline font-bold"
-                                                >
-                                                    عرض التقرير
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                                {filteredReports.length === 0 && (
-                                    <tr><td colSpan={7} className="p-8 text-center text-gray-500">لا توجد تقارير تطابق البحث.</td></tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    {/* Bulk Actions Footer */}
-                    <div className="mt-4 pt-4 border-t flex flex-wrap justify-between items-center gap-3">
-                        <div className="text-sm text-gray-600">
-                            تم تحديد <strong>{selectedReportIds.size}</strong> من <strong>{filteredReports.length}</strong>
+            <div className="space-y-4">
+                {filteredReports.length > 0 ? filteredReports.map(report => (
+                    <div key={report.id} className="flex items-start gap-2">
+                        <div className="pt-4">
+                            <input 
+                                type="checkbox" 
+                                checked={selectedReports.includes(report.id)}
+                                onChange={() => handleSelectReport(report.id)}
+                                className="w-5 h-5 text-primary rounded"
+                            />
                         </div>
-                        <div className="flex gap-2">
-                            <button 
-                                onClick={handleBulkExcelExport} 
-                                className="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700 flex items-center gap-2"
-                                disabled={selectedReportIds.size === 0 && filteredReports.length === 0}
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
-                                تصدير Excel
-                            </button>
-                            <button 
-                                onClick={() => {
-                                    if (filteredReports.length === 0) {
-                                        alert('لا توجد تقارير لإرسالها.');
-                                        return;
-                                    }
-                                    setShowWhatsAppModal(true);
-                                }}
-                                className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 flex items-center gap-2"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" /></svg>
-                                إرسال واتساب ({selectedReportIds.size > 0 ? 'محدد' : 'الكل'})
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            ) : (
-                <div className="space-y-4">
-                    {reports.length > 0 ? (
-                        reports.map(report => (
+                        <div className="flex-grow">
                             <ReportEditor 
-                                key={report.id} 
-                                report={report} 
+                                report={report}
                                 allReports={reports}
                                 allTeachers={allTeachers}
-                                onUpdate={handleUpdateReport} 
+                                onUpdate={handleUpdateReport}
                                 onDelete={handleDeleteReport}
-                                isCollapsed={!expandedIds.has(report.id)}
-                                onToggleCollapse={() => toggleExpand(report.id)}
+                                isCollapsed={collapsedReports.has(report.id)}
+                                onToggleCollapse={() => handleToggleCollapse(report.id)}
                             />
-                        ))
-                    ) : (
-                        <p className="text-center text-gray-500 py-8">{t('noSyllabusCoverageReports')}</p>
-                    )}
-                </div>
-            )}
+                        </div>
+                    </div>
+                )) : (
+                    <p className="text-center text-gray-500 py-8">{t('noSyllabusCoverageReports')}</p>
+                )}
+            </div>
         </div>
     );
 };

@@ -333,9 +333,9 @@ const ClassSessionEvaluationForm: React.FC<ClassSessionEvaluationFormProps> = ({
   const teacherSections = useMemo(() => teacher.sectionsTaught?.split(',').map(s => s.trim()).filter(Boolean) || [], [teacher.sectionsTaught]);
   
     const handleDataParsed = (parsedData: Partial<ClassSessionEvaluationReport>) => {
-        // CRITICAL FIX: Extract 'id' to prevent overwriting the existing report's ID.
+        // CRITICAL FIX: Extract 'id' and 'teacherId' to prevent overwriting the existing report's ID and owner.
         // This stops the report from disappearing/cancelling unexpectedly.
-        const { id, ...dataToMerge } = parsedData;
+        const { id, teacherId, ...dataToMerge } = parsedData;
         
         const updatedFormData = { ...formData };
 

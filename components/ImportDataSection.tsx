@@ -66,9 +66,9 @@ const ImportDataSection: React.FC<ImportDataSectionProps> = ({ onDataParsed, for
 
         try {
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
-            // The prompt is now engineered specifically for the user's provided format
+            // The prompt is now engineered specifically for the user's provided format (Rich Text / Emojis)
             const prompt = `
-                You are a data extraction engine tailored for Arabic Educational Reports.
+                You are a data extraction engine tailored for Arabic Educational Reports (Rich Text).
                 
                 **SOURCE TEXT TO ANALYZE:**
                 ---
@@ -79,39 +79,34 @@ const ImportDataSection: React.FC<ImportDataSectionProps> = ({ onDataParsed, for
                 ${JSON.stringify(formStructure, null, 2)}
 
                 **EXTRACTION RULES (Strictly Follow):**
-                1. **Anchors:** Use the emojis in the text to identify fields:
-                   - *👨‍🏫 المعلم:* -> teacherId (Extract name)
+                1. **Anchors:** Use emojis as strong anchors.
+                   - *👨‍🏫 المعلم:* -> teacherId (Extract name only)
+                   - *📖 المادة:* -> subject (Text before the hyphen)
                    - *🏫 المدرسة:* -> schoolName
-                   - *🎓 العام الدراسي:* -> academicYear
-                   - *📅 التاريخ:* -> date (Convert to YYYY-MM-DD, e.g., 2025-12-13)
-                   - *الفصل:* -> semester
-                   - *📖 المادة:* -> subject (Text BEFORE the hypen)
-                   - *الصف:* -> grade (Text AFTER the hyphen, remove parentheses like (رئيسي))
+                   - *📅 التاريخ:* -> date (Convert to YYYY-MM-DD)
                 
-                2. **Branches Extraction (*📌 فرع: ...*):**
-                   - The text contains multiple sections starting with *📌 فرع:*.
-                   - For EACH section found, create an object in the 'branches' array.
-                   - 'branchName': Text after *📌 فرع:*
-                   - 'status': Text after 🔵 *الحالة:* (Map 'مطابق' -> 'on_track', 'متقدم' -> 'ahead', 'متأخر' -> 'behind')
-                   - 'lastLesson': Text after *✍️ آخر درس:*
+                2. **Syllabus Coverage (*📘 السير في المنهج*):**
+                   - Look for *📌 فرع:*. Create an object for each branch in 'branches' array.
+                   - Status: Map "مطابق" -> "on_track", "متقدم" -> "ahead", "متأخر" -> "behind".
+                   - Last Lesson: Text after *✍️ آخر درس:*.
                 
-                3. **Class Session Evaluation Extraction:**
-                   - **Groups:** Look for headers starting with *📌* (e.g., *📌 الكفايات الشخصية...*). These match the 'title' in criterionGroups.
-                   - **Criteria:** Under each group, lines starting with "-" or "•" are criteria. 
-                   - **Scores:** Extract the score from text like "4 / 4". The first number is the score. Ignore the percentage in brackets (e.g. (⭐ 100%)).
-                   - **Structure:** Return 'criterionGroups' as an array of objects: { title: "Group Name", criteria: [{ label: "Criterion Text", score: 4 }, ...] }.
-
-                4. **Lists Extraction (Bullet Points):**
-                   - For qualitative fields (Positives, Notes, Recommendations, etc.), capture ALL lines starting with "-" or "•" under the specific header.
-                   - Join them into a single string separated by newlines ("\n"). Do NOT return an array.
+                3. **Class Session Evaluation (*تقييم حصة دراسية*):**
+                   - **Groups:** Headers starting with *📌* (e.g., *📌 الكفايات الشخصية...*) map to 'criterionGroups'.Match the 'title' fuzzily.
+                   - **Criteria:** Inside a group, lines starting with "-" or "•" are criteria.
+                   - **Scores:** Look for the pattern "Number / Number" (e.g., "4 / 4"). The FIRST number is the score. Ignore text like (⭐ 100%).
+                
+                4. **Lists Extraction (Qualitative Data):**
+                   - For fields like 'strategiesImplemented', 'toolsUsed', 'positives', 'notesForImprovement':
+                   - Find the header (e.g., *💡 الاستراتيجيات المستخدمة:* or *👍 الإيجابيات:*).
+                   - Collect ALL lines starting with "-" or "•" immediately following it.
+                   - Join them into a single string separated by newlines ("\n"). Do NOT return a JSON array for these fields.
                 
                 5. **Quantitative Stats:**
-                   - *تصحيح الدفاتر:* -> notebookCorrection (Number only, remove %)
-                   - *دفتر التحضير:* -> preparationBook (Number only, remove %)
-                   - *مسرد الأسئلة:* -> questionsGlossary (Number only, remove %)
+                   - Remove "%" signs from numbers (e.g., "100%" -> "100").
 
                 **OUTPUT:**
-                Return ONLY valid JSON. No markdown, no comments. Do NOT include 'id' in the output object.
+                Return ONLY valid JSON. No markdown, no comments.
+                **IMPORTANT:** Do NOT include 'id' in the output.
             `;
             
             const response: GenerateContentResponse = await ai.models.generateContent({
@@ -146,8 +141,8 @@ const ImportDataSection: React.FC<ImportDataSectionProps> = ({ onDataParsed, for
             <textarea
                 value={text}
                 onChange={(e) => setText(e.target.value)}
-                className="w-full p-2 border rounded-md h-32 focus:ring-2 focus:ring-indigo-400"
-                placeholder="ألصق النص هنا..."
+                className="w-full p-2 border rounded-md h-32 focus:ring-2 focus:ring-indigo-400 text-sm font-mono"
+                placeholder="ألصق النص هنا (مثال: *📊 تقرير السير في المنهج* ...)"
             />
             <div className="flex items-center gap-4">
                 <input
