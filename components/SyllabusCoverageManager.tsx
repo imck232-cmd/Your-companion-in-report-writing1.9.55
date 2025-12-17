@@ -8,7 +8,6 @@ import { exportSyllabusCoverage } from '../lib/exportUtils';
 import CustomizableInputSection from './CustomizableInputSection';
 import ImportDataSection from './ImportDataSection';
 
-// Declare XLSX for import functionality
 declare const XLSX: any;
 
 interface SyllabusCoverageManagerProps {
@@ -20,7 +19,6 @@ interface SyllabusCoverageManagerProps {
     allTeachers: Teacher[];
 }
 
-// --- Helper Functions ---
 const calculateOverallPercentage = (report: SyllabusCoverageReport): number => {
     if (!report.branches || report.branches.length === 0) return 0;
     const total = report.branches.reduce((acc, b) => acc + (b.percentage || 0), 0);
@@ -34,7 +32,6 @@ const getReportStatus = (report: SyllabusCoverageReport): 'ahead' | 'behind' | '
     return 'on_track';
 };
 
-// --- WhatsApp Selection Modal ---
 const WhatsAppBulkModal: React.FC<{
     selectedReports: SyllabusCoverageReport[];
     allTeachers: Teacher[];
@@ -209,147 +206,13 @@ const ReportEditor: React.FC<{
         onUpdate({ ...report, [field]: value });
     };
 
-    // Excel Import Logic
-    const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = (evt) => {
-            try {
-                const bstr = evt.target?.result;
-                const wb = XLSX.read(bstr, { type: 'binary' });
-                const wsname = wb.SheetNames[0];
-                const ws = wb.Sheets[wsname];
-                const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
-
-                if (data.length > 0) {
-                    const updatedReport = { ...report };
-                    let branches: SyllabusBranchProgress[] = [];
-                    
-                    // Simple logic to find keys and set values (mapping might need adjustment based on user excel structure)
-                    const findValue = (key: string) => {
-                        for (let i = 0; i < data.length; i++) {
-                            const row = data[i] as any[];
-                            if (row[0] && String(row[0]).includes(key)) {
-                                return row[1];
-                            }
-                        }
-                        return null;
-                    };
-
-                    const teacherName = findValue('المعلم');
-                    if (teacherName) updatedReport.teacherId = allTeachers.find(t => t.name === teacherName)?.id || report.teacherId;
-                    
-                    const subj = findValue('المادة');
-                    if(subj) updatedReport.subject = subj;
-                    
-                    const grd = findValue('الصف');
-                    if(grd) updatedReport.grade = grd;
-                    
-                    const acYear = findValue('العام الدراسي');
-                    if(acYear) updatedReport.academicYear = acYear;
-                    
-                    const school = findValue('المدرسة');
-                    if(school) updatedReport.schoolName = school;
-
-                    const reportDate = findValue('التاريخ');
-                    if(reportDate) updatedReport.date = reportDate;
-                    
-                    const semester = findValue('الفصل الدراسي') || findValue('الفصل');
-                    if (semester && (semester.includes('الأول') || semester.includes('1'))) updatedReport.semester = 'الأول';
-                    else if (semester && (semester.includes('الثاني') || semester.includes('2'))) updatedReport.semester = 'الثاني';
-
-                    // Try to find branches in the rows
-                    let branchHeaderRowIndex = -1;
-                    for(let i=0; i<data.length; i++) {
-                        const row = data[i] as any[];
-                        if(row.includes('الفرع') && (row.includes('حالة السير') || row.includes('الحالة'))) {
-                            branchHeaderRowIndex = i;
-                            break;
-                        }
-                    }
-
-                    if(branchHeaderRowIndex !== -1) {
-                        for(let i = branchHeaderRowIndex + 1; i < data.length; i++) {
-                            const row = data[i] as any[];
-                            if(!row[0]) break; 
-                            
-                            const branchName = row[0];
-                            const statusText = row[1];
-                            const lastLesson = row[2];
-                            const diff = row[3];
-
-                            let status: SyllabusBranchProgress['status'] = 'not_set';
-                            if(String(statusText).includes(t('statusAhead'))) status = 'ahead';
-                            else if(String(statusText).includes(t('statusBehind'))) status = 'behind';
-                            else if(String(statusText).includes(t('statusOnTrack'))) status = 'on_track';
-
-                            branches.push({
-                                branchName,
-                                status,
-                                lastLesson: lastLesson || '',
-                                lessonDifference: diff || '',
-                                percentage: status === 'on_track' ? 100 : 0
-                            });
-                        }
-                        if(branches.length > 0) updatedReport.branches = branches;
-                    }
-
-                    // Qualitative fields
-                    const meetings = findValue(t('meetingsAttended')) || findValue('اللقاءات');
-                    if(meetings) updatedReport.meetingsAttended = String(meetings);
-                    
-                    const correction = findValue(t('notebookCorrection')) || findValue('تصحيح');
-                    if(correction) updatedReport.notebookCorrection = String(correction).replace('%', '').trim();
-                    
-                    const prep = findValue(t('preparationBook')) || findValue('التحضير');
-                    if(prep) updatedReport.preparationBook = String(prep).replace('%', '').trim();
-                    
-                    const glos = findValue(t('questionsGlossary')) || findValue('مسرد');
-                    if(glos) updatedReport.questionsGlossary = String(glos).replace('%', '').trim();
-
-                    const strats = findValue(t('strategiesUsed')) || findValue('الاستراتيجيات');
-                    if(strats) updatedReport.strategiesImplemented = strats;
-                    
-                    const tools = findValue(t('toolsUsed')) || findValue('الوسائل');
-                    if(tools) updatedReport.toolsUsed = tools;
-                    
-                    const sources = findValue(t('sourcesUsed')) || findValue('المصادر');
-                    if(sources) updatedReport.sourcesUsed = sources;
-                    
-                    const progs = findValue(t('programsUsed')) || findValue('البرامج');
-                    if(progs) updatedReport.programsImplemented = progs;
-                    
-                    const tasks = findValue(t('tasksDone')) || findValue('التكاليف');
-                    if(tasks) updatedReport.tasksDone = tasks;
-                    
-                    const tests = findValue(t('testsDelivered')) || findValue('الاختبارات');
-                    if(tests) updatedReport.testsDelivered = tests;
-                    
-                    const visits = findValue(t('peerVisitsDone')) || findValue('الزيارات');
-                    if(visits) updatedReport.peerVisitsDone = visits;
-
-                    onUpdate(updatedReport);
-                    alert('تم استيراد جميع البيانات بنجاح.');
-                }
-            } catch (error) {
-                console.error("Import error:", error);
-                alert('حدث خطأ أثناء قراءة ملف الإكسل. تأكد من صحة الملف.');
-            }
-        };
-        reader.readAsBinaryString(file);
-        if (fileInputRef.current) fileInputRef.current.value = '';
-    };
-
     const handleSave = () => {
         setIsSaving(true);
         setTimeout(() => setIsSaving(false), 1500);
     };
 
     const handleDataParsed = (data: any) => {
-        // AI fill logic - Improved to handle the new fields
-        const { id, teacherId, branches, ...otherData } = data;
+        const { id, teacherId, ...otherData } = data;
         let resolvedTeacherId = report.teacherId;
         
         if (!report.teacherId && teacherId) {
@@ -357,14 +220,7 @@ const ReportEditor: React.FC<{
             if (found) resolvedTeacherId = found.id;
         }
 
-        const newReport: SyllabusCoverageReport = { 
-            ...report, ...otherData, id: report.id, teacherId: resolvedTeacherId, 
-            branches: branches && Array.isArray(branches) ? branches.map((b: any) => ({
-                ...b,
-                percentage: b.status === 'on_track' || b.status === 'ahead' ? 100 : 0
-            })) : report.branches 
-        };
-        onUpdate(newReport);
+        onUpdate({ ...report, ...otherData, id: report.id, teacherId: resolvedTeacherId });
         setShowAIImport(false);
     };
 
@@ -429,29 +285,12 @@ const ReportEditor: React.FC<{
             </div>
 
             <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-200 mb-6 shadow-inner">
-                <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-3">
                     <button onClick={() => setShowAIImport(!showAIImport)} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition-colors shadow-sm">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
                         <span>تعبئة ذكية (AI)</span>
                     </button>
-                    
-                    {/* Excel Import Button */}
-                    <div className="relative">
-                        <input 
-                            type="file" 
-                            ref={fileInputRef} 
-                            onChange={handleImportExcel} 
-                            accept=".xlsx, .xls" 
-                            className="hidden" 
-                        />
-                        <button 
-                            onClick={() => fileInputRef.current?.click()} 
-                            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-700 transition-colors shadow-sm"
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-2a2 2 0 012-2h2a2 2 0 012 2v2m-6-9l3-3m0 0l3 3m-3-3v12" /></svg>
-                            <span>تعبئة من إكسل</span>
-                        </button>
-                    </div>
+                    <p className="text-sm text-indigo-600 italic">تعرف على التقارير النصية وتعبئة الحقول تلقائياً.</p>
                 </div>
                 {showAIImport && (
                     <div className="mt-4 border-t border-indigo-200 pt-4">
@@ -492,33 +331,30 @@ const ReportEditor: React.FC<{
                 </div>
             </div>
 
-            {/* الجدول يدعم التمرير اليدوي على الجوال */}
-            <div className="overflow-x-auto border rounded-lg bg-white">
-                <div className="min-w-[600px]"> 
-                    <div className="bg-blue-100 p-2 flex font-bold text-sm">
-                        <div className="w-1/4 p-1 border-l border-blue-200">{t('branch')}</div>
-                        <div className="w-1/3 p-1 border-l border-blue-200">{t('lastLesson')}</div>
-                        <div className="flex-grow p-1">{t('status')}</div>
-                    </div>
-                    {report.branches.length > 0 ? report.branches.map((b, i) => (
-                        <div key={i} className="flex border-t items-center bg-gray-50 hover:bg-white transition-colors">
-                            <div className="w-1/4 p-2 border-l font-bold text-sm bg-gray-100">{b.branchName}</div>
-                            <div className="w-1/3 p-2 border-l">
-                                <input type="text" value={b.lastLesson} onChange={e => handleBranchUpdate(i, 'lastLesson', e.target.value)} className="w-full p-1 border rounded" />
-                            </div>
-                            <div className="flex-grow p-2">
-                                <div className="flex gap-2 items-center flex-wrap">
-                                    <select value={b.status} onChange={e => handleBranchUpdate(i, 'status', e.target.value)} className="p-1 border rounded text-sm flex-grow min-w-[140px]">
-                                        <option value="not_set">-- اختر --</option><option value="on_track">{t('statusOnTrack')}</option><option value="ahead">{t('statusAhead')}</option><option value="behind">{t('statusBehind')}</option>
-                                    </select>
-                                    {(b.status === 'ahead' || b.status === 'behind') && (
-                                        <div className="flex items-center gap-1 bg-white border rounded p-1"><span className="text-xs whitespace-nowrap">بعدد</span><input type="number" value={b.lessonDifference} onChange={e => handleBranchUpdate(i, 'lessonDifference', e.target.value)} className="w-12 p-1 border rounded text-center text-sm" /><span className="text-xs whitespace-nowrap">دروس</span></div>
-                                    )}
-                                </div>
+            <div className="border rounded-lg bg-white">
+                <div className="bg-blue-100 p-2 flex font-bold text-sm">
+                    <div className="w-1/4 p-1 border-l border-blue-200">{t('branch')}</div>
+                    <div className="w-1/3 p-1 border-l border-blue-200">{t('lastLesson')}</div>
+                    <div className="flex-grow p-1">{t('status')}</div>
+                </div>
+                {report.branches.length > 0 ? report.branches.map((b, i) => (
+                    <div key={i} className="flex border-t items-center bg-gray-50 hover:bg-white transition-colors">
+                        <div className="w-1/4 p-2 border-l font-bold text-sm bg-gray-100">{b.branchName}</div>
+                        <div className="w-1/3 p-2 border-l">
+                            <input type="text" value={b.lastLesson} onChange={e => handleBranchUpdate(i, 'lastLesson', e.target.value)} className="w-full p-1 border rounded" />
+                        </div>
+                        <div className="flex-grow p-2">
+                            <div className="flex gap-2 items-center">
+                                <select value={b.status} onChange={e => handleBranchUpdate(i, 'status', e.target.value)} className="p-1 border rounded text-xs flex-grow">
+                                    <option value="not_set">-- اختر --</option><option value="on_track">{t('statusOnTrack')}</option><option value="ahead">{t('statusAhead')}</option><option value="behind">{t('statusBehind')}</option>
+                                </select>
+                                {(b.status === 'ahead' || b.status === 'behind') && (
+                                    <div className="flex items-center gap-1 bg-white border rounded p-1"><span className="text-xs whitespace-nowrap">بعدد</span><input type="number" value={b.lessonDifference} onChange={e => handleBranchUpdate(i, 'lessonDifference', e.target.value)} className="w-12 p-1 border rounded text-center text-sm" /><span className="text-xs whitespace-nowrap">دروس</span></div>
+                                )}
                             </div>
                         </div>
-                    )) : <div className="p-4 text-center text-gray-500">لا توجد فروع محددة لهذه المادة</div>}
-                </div>
+                    </div>
+                )) : <div className="p-4 text-center text-gray-500">لا توجد فروع محددة لهذه المادة</div>}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
@@ -683,7 +519,6 @@ const SyllabusCoverageManager: React.FC<SyllabusCoverageManagerProps> = ({
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" /></svg>
                         {viewMode === 'list' ? 'عرض جدول الفلترة' : 'عرض القائمة'}
                     </button>
-                    {/* تفعيل زر الإضافة */}
                     <button onClick={handleAddNewReport} className="px-4 py-2 bg-primary text-white font-bold rounded-lg hover:bg-opacity-90 transition-colors shadow-sm">
                         + {t('addNewSyllabusReport')}
                     </button>
@@ -693,16 +528,16 @@ const SyllabusCoverageManager: React.FC<SyllabusCoverageManagerProps> = ({
             {viewMode === 'table' && (
                 <div className="bg-white p-4 rounded-lg shadow-md border space-y-4 animate-fade-in">
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <input type="text" placeholder={t('searchForTeacher')} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="p-2 border rounded text-base" />
-                        <select value={filterSubject} onChange={e => setFilterSubject(e.target.value)} className="p-2 border rounded text-base">
+                        <input type="text" placeholder={t('searchForTeacher')} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="p-2 border rounded" />
+                        <select value={filterSubject} onChange={e => setFilterSubject(e.target.value)} className="p-2 border rounded">
                             <option value="all">كل المواد</option>
                             {SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
-                        <select value={filterGrade} onChange={e => setFilterGrade(e.target.value)} className="p-2 border rounded text-base">
+                        <select value={filterGrade} onChange={e => setFilterGrade(e.target.value)} className="p-2 border rounded">
                             <option value="all">كل الصفوف</option>
                             {GRADES.map(g => <option key={g} value={g}>{g}</option>)}
                         </select>
-                        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value as any)} className="p-2 border rounded text-base">
+                        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value as any)} className="p-2 border rounded">
                             <option value="all">كل الحالات</option>
                             <option value="ahead">{t('statusAhead')}</option>
                             <option value="behind">{t('statusBehind')}</option>
@@ -776,7 +611,7 @@ const SyllabusCoverageManager: React.FC<SyllabusCoverageManagerProps> = ({
                             placeholder={t('searchForTeacher')} 
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
-                            className="p-2 border rounded w-full md:w-64 text-base"
+                            className="p-2 border rounded w-full md:w-64"
                         />
                         <div className="flex items-center gap-4">
                             <label className="flex items-center gap-2 cursor-pointer">
@@ -802,7 +637,7 @@ const SyllabusCoverageManager: React.FC<SyllabusCoverageManagerProps> = ({
                                     className="w-5 h-5 text-primary rounded cursor-pointer"
                                 />
                             </div>
-                            <div className="flex-grow max-w-full overflow-hidden">
+                            <div className="flex-grow">
                                 <ReportEditor 
                                     report={report}
                                     allReports={reports}
