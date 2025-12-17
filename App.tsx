@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 // FIX: Import 'useLanguage' hook to resolve 'Cannot find name' error.
 import { LanguageProvider, useLanguage } from './i18n/LanguageContext';
@@ -7,6 +8,7 @@ import Header from './components/Header';
 import Footer from './components/Footer';
 import TeacherManagement from './components/TeacherManagement';
 import LoginModal from './components/LoginModal';
+import ScrollButtons from './components/ScrollButtons';
 import { Teacher, Report, CustomCriterion, School, SpecialReportTemplate, SyllabusPlan, Task, Meeting, PeerVisit, DeliverySheet, BulkMessage, User, SyllabusCoverageReport, SupervisoryPlanWrapper } from './types';
 import { THEMES, INITIAL_TEACHERS, INITIAL_SCHOOLS, INITIAL_SUPERVISORY_PLANS } from './constants';
 import useLocalStorage from './hooks/useLocalStorage';
@@ -192,7 +194,7 @@ const AppContent: React.FC = () => {
           selectedSchool={selectedSchool}
           onChangeSchool={() => setSelectedSchool(null)}
       />
-      <main className="container mx-auto p-4 md:p-6">
+      <main className="container mx-auto p-4 md:p-6 pb-24">
         <TeacherManagement 
           teachers={userFilteredData.teachers}
           allTeachers={userFilteredData.allTeachersInSchool}
@@ -233,6 +235,7 @@ const AppContent: React.FC = () => {
           setBulkMessages={setBulkMessages}
         />
       </main>
+      <ScrollButtons />
       <Footer />
     </div>
   );
