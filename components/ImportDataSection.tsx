@@ -8,7 +8,7 @@ declare const XLSX: any;
 
 interface ImportDataSectionProps {
     onDataParsed: (data: Partial<Report>) => void;
-    formStructure: any; // Changed to any to allow descriptive values
+    formStructure: any; 
     customButtonLabel?: string;
 }
 
@@ -39,23 +39,17 @@ const ImportDataSection: React.FC<ImportDataSectionProps> = ({ onDataParsed, for
             };
             reader.readAsArrayBuffer(file);
         } else {
-            alert('File type not supported. Please upload .txt or .xlsx');
+            alert('نوع الملف غير مدعوم. يرجى رفع ملف .txt أو .xlsx');
         }
     };
 
-    // Robust JSON Cleaner function
     const cleanJsonString = (str: string) => {
-        // Remove markdown code blocks (```json ... ``` or just ``` ... ```)
         let cleaned = str.replace(/```json/g, '').replace(/```/g, '');
-        
-        // Find the first '{' and the last '}' to strip any conversational text before or after
         const firstBrace = cleaned.indexOf('{');
         const lastBrace = cleaned.lastIndexOf('}');
-        
         if (firstBrace !== -1 && lastBrace !== -1) {
             cleaned = cleaned.substring(firstBrace, lastBrace + 1);
         }
-        
         return cleaned.trim();
     };
 
@@ -66,11 +60,10 @@ const ImportDataSection: React.FC<ImportDataSectionProps> = ({ onDataParsed, for
 
         try {
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
-            // The prompt is now engineered specifically for the user's provided format (Rich Text / Emojis)
             const prompt = `
-                You are a data extraction engine tailored for Arabic Educational Reports (Rich Text).
+                You are a data extraction engine for Arabic Educational Reports.
                 
-                **SOURCE TEXT TO ANALYZE:**
+                **SOURCE TEXT:**
                 ---
                 ${text}
                 ---
@@ -78,58 +71,50 @@ const ImportDataSection: React.FC<ImportDataSectionProps> = ({ onDataParsed, for
                 **TARGET JSON STRUCTURE:**
                 ${JSON.stringify(formStructure, null, 2)}
 
-                **EXTRACTION RULES (Strictly Follow):**
-                1. **Anchors:** Use emojis as strong anchors.
-                   - *👨‍🏫 المعلم:* -> teacherId (Extract name only)
-                   - *📖 المادة:* -> subject (Text before the hyphen)
-                   - *🏫 المدرسة:* -> schoolName
-                   - *📅 التاريخ:* -> date (Convert to YYYY-MM-DD)
+                **INSTRUCTIONS:**
+                1. Use the Emojis as anchors for extraction.
+                2. *👨‍🏫 المعلم:* -> teacherId (Extract name)
+                3. *📖 المادة:* -> subject (Extract before hyphen)
+                4. *الصف:* -> grade
+                5. *الفصل:* -> semester ('الأول' or 'الثاني')
+                6. *📅 التاريخ:* -> date (Convert to YYYY-MM-DD)
                 
-                2. **Syllabus Coverage (*📘 السير في المنهج*):**
-                   - Look for *📌 فرع:*. Create an object for each branch in 'branches' array.
-                   - Status: Map "مطابق" -> "on_track", "متقدم" -> "ahead", "متأخر" -> "behind".
-                   - Last Lesson: Text after *✍️ آخر درس:*.
+                7. **Syllabus Coverage Section (*📘 السير في المنهج*):**
+                   - For each *📌 فرع:* create an object in 'branches'.
+                   - Map status text to status enum:
+                     - "مطابق لخطة الوزارة" -> "on_track"
+                     - "متقدم عن خطة الوزارة" -> "ahead"
+                     - "متأخر عن خطة الوزارة" -> "behind"
+                     - "--" or any other -> "not_set"
+                   - Extract lesson name from *✍️ آخر درس:*.
                 
-                3. **Class Session Evaluation (*تقييم حصة دراسية*):**
-                   - **Groups:** Headers starting with *📌* (e.g., *📌 الكفايات الشخصية...*) map to 'criterionGroups'.Match the 'title' fuzzily.
-                   - **Criteria:** Inside a group, lines starting with "-" or "•" are criteria.
-                   - **Scores:** Look for the pattern "Number / Number" (e.g., "4 / 4"). The FIRST number is the score. Ignore text like (⭐ 100%).
-                
-                4. **Lists Extraction (Qualitative Data):**
-                   - For fields like 'strategiesImplemented', 'toolsUsed', 'positives', 'notesForImprovement':
-                   - Find the header (e.g., *💡 الاستراتيجيات المستخدمة:* or *👍 الإيجابيات:*).
-                   - Collect ALL lines starting with "-" or "•" immediately following it.
-                   - Join them into a single string separated by newlines ("\n"). Do NOT return a JSON array for these fields.
-                
-                5. **Quantitative Stats:**
-                   - Remove "%" signs from numbers (e.g., "100%" -> "100").
+                8. **Quantitative Section (*📊 الإحصائيات الكمية*):**
+                   - 'meetingsAttended': extract number from "اللقاءات التطويرية".
+                   - 'notebookCorrection': extract number (ignore %) from "تصحيح الدفاتر".
+                   - 'preparationBook': extract number (ignore %) from "دفتر التحضير".
+                   - 'questionsGlossary': extract number (ignore %) from "مسرد الأسئلة".
 
-                **OUTPUT:**
-                Return ONLY valid JSON. No markdown, no comments.
-                **IMPORTANT:** Do NOT include 'id' in the output.
+                9. **Qualitative Section (*📝 البيانات النوعية*):**
+                   - For headers like *💻 البرامج المنفذة:*, *💡 الاستراتيجيات المستخدمة:*, etc.
+                   - Collect ALL bullet points or lines under each header.
+                   - Join them with newlines ("\n").
+
+                **OUTPUT:** ONLY valid JSON.
             `;
             
             const response: GenerateContentResponse = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
+                model: 'gemini-3-flash-preview',
                 contents: prompt,
-                 config: {
-                    temperature: 0.1, // Low temperature for high precision
-                }
+                 config: { temperature: 0.1 }
             });
 
             const rawText = response.text || '';
-            if (!rawText) {
-                throw new Error("Received an empty response from the AI.");
-            }
-            
             const cleanedJson = cleanJsonString(rawText);
             const parsedData = JSON.parse(cleanedJson);
-            
             onDataParsed(parsedData);
-
         } catch (err) {
-            console.error("Import Parsing Error:", err);
-            setError(t('importError') + " (تأكد من صحة النص أو حاول مرة أخرى)");
+            console.error(err);
+            setError(t('importError'));
         } finally {
             setIsLoading(false);
         }
@@ -142,7 +127,7 @@ const ImportDataSection: React.FC<ImportDataSectionProps> = ({ onDataParsed, for
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 className="w-full p-2 border rounded-md h-32 focus:ring-2 focus:ring-indigo-400 text-base font-mono"
-                placeholder="ألصق النص هنا (مثال: *📊 تقرير السير في المنهج* ...)"
+                placeholder="ألصق النص هنا..."
             />
             <div className="flex items-center gap-4">
                 <input

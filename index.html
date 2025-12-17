@@ -1,8 +1,9 @@
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" />
     <title>رفيقك في كتابة التقارير</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -53,6 +54,13 @@
       body {
         background-color: var(--color-background);
         color: var(--color-text);
+        overflow-x: hidden; /* منع الانزياح العرضي */
+        width: 100%;
+        position: relative;
+      }
+      /* تحسين حجم الخط في الحقول لمنع زووم الآيفون التلقائي */
+      input, select, textarea {
+        font-size: 16px !important;
       }
       .glowing-icon {
         filter: drop-shadow(0 0 5px var(--color-primary-light));
