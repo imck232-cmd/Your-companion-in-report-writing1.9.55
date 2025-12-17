@@ -1,7 +1,9 @@
+
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Meeting, PeerVisit, DeliverySheet, DeliveryRecord, MeetingOutcome, SchoolCalendarEvent, Teacher } from '../types';
 import { useLanguage } from '../i18n/LanguageContext';
-import { exportPeerVisits, exportDeliveryRecords, exportMeeting as exportMeetingUtil, exportMeetingSummary as exportMeetingSummaryUtil } from '../lib/exportUtils';
+// FIX: Removed 'exportDeliveryRecords' as it is not exported from '../lib/exportUtils' and not used in this file.
+import { exportPeerVisits, exportMeeting as exportMeetingUtil, exportMeetingSummary as exportMeetingSummaryUtil } from '../lib/exportUtils';
 import { useAuth } from '../contexts/AuthContext';
 import { SUBJECTS } from '../constants';
 
@@ -466,7 +468,7 @@ const DeliveryRecords: React.FC<{
         <div className="space-y-4">
              <div className="flex gap-2">
                 <input value={newSheetName} onChange={e => setNewSheetName(e.target.value)} placeholder={t('sheetName')} className="flex-grow p-2 border rounded" />
-                <button onClick={handleAddNewSheet} className="px-4 py-2 bg-primary text-white rounded hover:bg-opacity-90">{t('addNewSheet')}</button>
+                <button onClick={handleAddNewSheet} className="px-4 py-2 bg-primary text-white font-bold rounded-lg hover:bg-opacity-90">{t('addNewSheet')}</button>
              </div>
              <div className="space-y-3">
                 {sheets.map(sheet => (

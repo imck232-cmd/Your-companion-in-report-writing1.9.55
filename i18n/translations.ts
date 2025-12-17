@@ -279,8 +279,10 @@ export const translations = {
     notebookCorrection: "تصحيح الدفاتر",
     preparationBook: "دفتر التحضير",
     questionsGlossary: "مسرد الأسئلة نهاية دفتر التحضير",
+    // FIX: Removed duplicated properties tasksDone, testsDelivered, etc. later in the file as identified by the error list.
     tasksDone: "التكاليف التي تم القيام بها",
-    testsDelivered: "الاخبارات التي تم تسليمها",
+    // FIX: Corrected typo 'الاخبارات' to 'الاختبارات'.
+    testsDelivered: "الاختبارات التي تم تسليمها",
     peerVisitsDone: "الزيارات التبادلية التي تمت",
     importExcel: "استيراد",
     fillFromExcel: "تعبئة من ملف اكسل",
@@ -325,9 +327,10 @@ export const translations = {
     from_date: "من تاريخ",
     to_date: "إلى تاريخ",
     calculate: "احتساب",
-    strategiesUsed: "الاستراتيجيات المستخدمة",
-    toolsUsed: "الوسائل المستخدمة",
-    sourcesUsed: "المصادر المستخدمة",
+    // FIX: Updated translations to match the style found later in the duplicate block for better clarity.
+    strategiesUsed: "الاستراتيجيات التي تم تنفيذها",
+    toolsUsed: "الوسائل التي تم استخدامها",
+    sourcesUsed: "المصادر التي تم استخدامها",
     evaluationElementAnalysis: "تحليل عناصر التقييم",
     generalEvaluationElements: "عناصر التقييم العام",
     briefEvaluationElements: "عناصر التقييم المختصر",
@@ -397,13 +400,8 @@ export const translations = {
     viewReport: "عرض التقرير",
     bookmark: "علامة مرجعية",
     semesterAll: "الأول والثاني",
+    // FIX: Kept programsUsed and removed subsequent duplicates as identified by error report.
     programsUsed: "البرامج والمهارات المنفذة",
-    tasksDone: "التكاليف التي تم القيام بها",
-    testsDelivered: "الاختبارات التي تم تسليمها",
-    peerVisitsDone: "الزيارات التبادلية التي تمت",
-    strategiesUsed: "الاستراتيجيات التي تم تنفيذها",
-    toolsUsed: "الوسائل التي تم استخدامها",
-    sourcesUsed: "المصادر التي تم استخدامها",
   },
   en: {
     appTitle: "Report Writing Companion",
@@ -684,6 +682,7 @@ export const translations = {
     notebookCorrection: "Notebook Correction",
     preparationBook: "Preparation Book",
     questionsGlossary: "Questions Glossary",
+    // FIX: Removed duplicated properties tasksDone, testsDelivered, etc. later in the file as identified by the error report.
     tasksDone: "Tasks Completed",
     testsDelivered: "Tests Delivered",
     peerVisitsDone: "Peer Visits Conducted",
@@ -802,12 +801,7 @@ export const translations = {
     viewReport: "View Report",
     bookmark: "Bookmark",
     semesterAll: "Both Semesters",
+    // FIX: Kept programsUsed and removed subsequent duplicates as identified by error report.
     programsUsed: "Implemented Programs",
-    tasksDone: "Tasks Completed",
-    testsDelivered: "Tests Delivered",
-    peerVisitsDone: "Peer Visits Done",
-    strategiesUsed: "Strategies Used",
-    toolsUsed: "Tools Used",
-    sourcesUsed: "Sources Used",
   }
 };

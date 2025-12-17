@@ -91,7 +91,7 @@ const WhatsAppBulkModal: React.FC<{
                         onClick={handleSendCombined}
                         className="w-full py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-bold shadow-md flex items-center justify-center gap-2 transition-transform transform hover:scale-[1.02]"
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.894 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.886-.001 2.267.651 4.383 1.905 6.25l-.275 1.002 1.03 1.018z"/></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.894 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.886-.001 2.267.651 4.383 1.905 6.25l-.275 1.002 1.03 1.018zM8.718 7.243c.133-.336.434-.543.818-.576.43-.034.636.101.804.312.189.231.631 1.52.663 1.623.032.102.05.213-.016.344-.065.131-.229.213-.401.325-.202.129-.41.26-.552.404-.16.161-.318.35-.165.608.175.292.747 1.229 1.624 2.016.994.881 1.866 1.158 2.149 1.24.31.09.462.046.63-.122.19-.184.82-1.022.952-1.229.132-.206.264-.238.44-.152.195.094 1.306.685 1.518.79.212.105.356.161.404.248.048.088.028.471-.124.922-.152.452-.947.881-1.306.922-.32.034-1.127.02-1.748-.227-.753-.3-1.859-1.158-3.041-2.451-1.37-1.52-2.316-3.213-2.316-3.213s-.165-.286-.318-.553c-.152-.267-.32-.287-.462-.287-.132 0-.304.01-.462.01z"/></svg>
                         إرسال ملخص مجمع للجميع ({selectedReports.length})
                     </button>
                 </div>
@@ -111,7 +111,7 @@ const WhatsAppBulkModal: React.FC<{
                                     className="flex items-center gap-2 px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 text-sm font-bold"
                                 >
                                     <span>إرسال</span>
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.894 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.886-.001 2.267.651 4.383 1.905 6.25l-.275 1.002 1.03 1.018zM8.718 7.243c.133-.336.434-.543.818-.576.43-.034.636.101.804.312.189.231.631 1.52.663 1.623.032.102.05.213-.016.344-.065.131-.229.213-.401.325-.202.129-.41.26-.552.404-.16.161-.318.35-.165.608.175.292.747 1.229 1.624 2.016.994.881 1.866 1.158 2.149 1.24.31.09.462.046.63-.122.19-.184.82-1.022.952-1.229.132-.206.264-.238.44-.152.195.094 1.306.685 1.518.79.212.105.356.161.404.248.048.088.028.471-.124.922-.152.452-.947.881-1.306.922-.32.034-1.127.02-1.748-.227-.753-.3-1.859-1.158-3.041-2.451-1.37-1.52-2.316-3.213-2.316-3.213s-.165-.286-.318-.553c-.152-.267-.32-.287-.462-.287-.132 0-.304.01-.462.01z"/></svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.894 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.886-.001 2.267.651 4.383 1.905 6.25l-.275 1.002 1.03 1.018z"/></svg>
                                 </button>
                             </div>
                         );
@@ -201,7 +201,6 @@ const ReportEditor: React.FC<{
         onUpdate({ ...report, branches: newBranches });
     };
     
-    // Handler for new dynamic fields
     const handleFieldUpdate = (field: keyof SyllabusCoverageReport, value: string) => {
         onUpdate({ ...report, [field]: value });
     };
@@ -274,7 +273,7 @@ const ReportEditor: React.FC<{
     }
 
     return (
-        <div className="p-4 border-2 border-primary-light rounded-xl space-y-4 bg-white shadow-sm relative">
+        <div className="p-2 md:p-4 border-2 border-primary-light rounded-xl space-y-4 bg-white shadow-sm relative max-w-full overflow-hidden">
             <div className="flex justify-between items-start cursor-pointer" onClick={onToggleCollapse}>
                 <h3 className="text-lg font-semibold text-primary">{report.teacherId ? reportTitle : t('addNewSyllabusReport')}</h3>
                 <div className="flex items-center gap-2">
@@ -284,8 +283,8 @@ const ReportEditor: React.FC<{
                 </div>
             </div>
 
-            <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-200 mb-6 shadow-inner">
-                <div className="flex items-center gap-3">
+            <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-200 mb-6 shadow-inner max-w-full">
+                <div className="flex flex-wrap items-center gap-3">
                     <button onClick={() => setShowAIImport(!showAIImport)} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition-colors shadow-sm">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
                         <span>تعبئة ذكية (AI)</span>
@@ -317,69 +316,71 @@ const ReportEditor: React.FC<{
                 </div>
                 <div>
                     <label className="text-xs font-bold block">{t('subject')}</label>
-                    <div className="flex gap-1">
-                        <select value={!SUBJECTS.includes(report.subject) ? 'other' : report.subject} onChange={e => handleHeaderChange('subject', e.target.value)} className="w-full p-2 border rounded">{SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}</select>
-                        {!SUBJECTS.includes(report.subject) && <input type="text" value={otherSubject} onChange={e => { setOtherSubject(e.target.value); handleHeaderChange('subject', e.target.value) }} className="w-full p-2 border rounded" />}
+                    <div className="flex gap-1 flex-wrap">
+                        <select value={!SUBJECTS.includes(report.subject) ? 'other' : report.subject} onChange={e => handleHeaderChange('subject', e.target.value)} className="w-full p-2 border rounded flex-grow min-w-0">{SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}</select>
+                        {!SUBJECTS.includes(report.subject) && <input type="text" value={otherSubject} onChange={e => { setOtherSubject(e.target.value); handleHeaderChange('subject', e.target.value) }} className="w-full p-2 border rounded flex-grow min-w-0" />}
                     </div>
                 </div>
                 <div>
                     <label className="text-xs font-bold block">{t('grade')}</label>
-                    <div className="flex gap-1">
-                        <select value={!GRADES.includes(report.grade) ? 'other' : report.grade} onChange={e => handleHeaderChange('grade', e.target.value)} className="w-full p-2 border rounded">{GRADES.map(g => <option key={g} value={g}>{g}</option>)}</select>
-                        {!GRADES.includes(report.grade) && <input type="text" value={otherGrade} onChange={e => { setOtherGrade(e.target.value); handleHeaderChange('grade', e.target.value) }} className="w-full p-2 border rounded" />}
+                    <div className="flex gap-1 flex-wrap">
+                        <select value={!GRADES.includes(report.grade) ? 'other' : report.grade} onChange={e => handleHeaderChange('grade', e.target.value)} className="w-full p-2 border rounded flex-grow min-w-0">{GRADES.map(g => <option key={g} value={g}>{g}</option>)}</select>
+                        {!GRADES.includes(report.grade) && <input type="text" value={otherGrade} onChange={e => { setOtherGrade(e.target.value); handleHeaderChange('grade', e.target.value) }} className="w-full p-2 border rounded flex-grow min-w-0" />}
                     </div>
                 </div>
             </div>
 
-            <div className="border rounded-lg bg-white">
-                <div className="bg-blue-100 p-2 flex font-bold text-sm">
-                    <div className="w-1/4 p-1 border-l border-blue-200">{t('branch')}</div>
-                    <div className="w-1/3 p-1 border-l border-blue-200">{t('lastLesson')}</div>
-                    <div className="flex-grow p-1">{t('status')}</div>
-                </div>
-                {report.branches.length > 0 ? report.branches.map((b, i) => (
-                    <div key={i} className="flex border-t items-center bg-gray-50 hover:bg-white transition-colors">
-                        <div className="w-1/4 p-2 border-l font-bold text-sm bg-gray-100">{b.branchName}</div>
-                        <div className="w-1/3 p-2 border-l">
-                            <input type="text" value={b.lastLesson} onChange={e => handleBranchUpdate(i, 'lastLesson', e.target.value)} className="w-full p-1 border rounded" />
-                        </div>
-                        <div className="flex-grow p-2">
-                            <div className="flex gap-2 items-center">
-                                <select value={b.status} onChange={e => handleBranchUpdate(i, 'status', e.target.value)} className="p-1 border rounded text-xs flex-grow">
-                                    <option value="not_set">-- اختر --</option><option value="on_track">{t('statusOnTrack')}</option><option value="ahead">{t('statusAhead')}</option><option value="behind">{t('statusBehind')}</option>
-                                </select>
-                                {(b.status === 'ahead' || b.status === 'behind') && (
-                                    <div className="flex items-center gap-1 bg-white border rounded p-1"><span className="text-xs whitespace-nowrap">بعدد</span><input type="number" value={b.lessonDifference} onChange={e => handleBranchUpdate(i, 'lessonDifference', e.target.value)} className="w-12 p-1 border rounded text-center text-sm" /><span className="text-xs whitespace-nowrap">دروس</span></div>
-                                )}
+            <div className="overflow-x-auto border rounded-lg bg-white">
+                <div className="min-w-[700px]"> 
+                    <div className="bg-blue-100 p-2 flex font-bold text-sm">
+                        <div className="w-1/4 p-1 border-l border-blue-200">{t('branch')}</div>
+                        <div className="w-1/3 p-1 border-l border-blue-200">{t('lastLesson')}</div>
+                        <div className="flex-grow p-1">{t('status')}</div>
+                    </div>
+                    {report.branches.length > 0 ? report.branches.map((b, i) => (
+                        <div key={i} className="flex border-t items-center bg-gray-50 hover:bg-white transition-colors">
+                            <div className="w-1/4 p-2 border-l font-bold text-sm bg-gray-100">{b.branchName}</div>
+                            <div className="w-1/3 p-2 border-l">
+                                <input type="text" value={b.lastLesson} onChange={e => handleBranchUpdate(i, 'lastLesson', e.target.value)} className="w-full p-1 border rounded" />
+                            </div>
+                            <div className="flex-grow p-2">
+                                <div className="flex gap-2 items-center flex-wrap">
+                                    <select value={b.status} onChange={e => handleBranchUpdate(i, 'status', e.target.value)} className="p-1 border rounded text-sm flex-grow min-w-[140px]">
+                                        <option value="not_set">-- اختر --</option><option value="on_track">{t('statusOnTrack')}</option><option value="ahead">{t('statusAhead')}</option><option value="behind">{t('statusBehind')}</option>
+                                    </select>
+                                    {(b.status === 'ahead' || b.status === 'behind') && (
+                                        <div className="flex items-center gap-1 bg-white border rounded p-1"><span className="text-xs whitespace-nowrap">بعدد</span><input type="number" value={b.lessonDifference} onChange={e => handleBranchUpdate(i, 'lessonDifference', e.target.value)} className="w-12 p-1 border rounded text-center text-sm" /><span className="text-xs whitespace-nowrap">دروس</span></div>
+                                    )}
+                                </div>
                             </div>
                         </div>
-                    </div>
-                )) : <div className="p-4 text-center text-gray-500">لا توجد فروع محددة لهذه المادة</div>}
+                    )) : <div className="p-4 text-center text-gray-500">لا توجد فروع محددة لهذه المادة</div>}
+                </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-                <div><label className="text-xs font-bold block mb-1">{t('meetingsAttended')}</label><input type="number" value={report.meetingsAttended || ''} onChange={e => handleFieldUpdate('meetingsAttended', e.target.value)} className="w-full p-2 border rounded bg-white text-center font-bold" /></div>
-                <div><label className="text-xs font-bold block mb-1">{t('notebookCorrection')}</label><select value={report.notebookCorrection || ''} onChange={e => handleFieldUpdate('notebookCorrection', e.target.value)} className="w-full p-2 border rounded bg-white text-center"><option value="">-- % --</option>{percentageOptions.map(p => <option key={p} value={p}>{p}%</option>)}</select></div>
-                <div><label className="text-xs font-bold block mb-1">{t('preparationBook')}</label><select value={report.preparationBook || ''} onChange={e => handleFieldUpdate('preparationBook', e.target.value)} className="w-full p-2 border rounded bg-white text-center"><option value="">-- % --</option>{percentageOptions.map(p => <option key={p} value={p}>{p}%</option>)}</select></div>
-                <div><label className="text-xs font-bold block mb-1">{t('questionsGlossary')}</label><select value={report.questionsGlossary || ''} onChange={e => handleFieldUpdate('questionsGlossary', e.target.value)} className="w-full p-2 border rounded bg-white text-center"><option value="">-- % --</option>{percentageOptions.map(p => <option key={p} value={p}>{p}%</option>)}</select></div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                <div><label className="text-xs font-bold block mb-1 text-yellow-800">{t('meetingsAttended')}</label><input type="number" value={report.meetingsAttended || ''} onChange={e => handleFieldUpdate('meetingsAttended', e.target.value)} className="w-full p-2 border rounded bg-white text-center font-bold" /></div>
+                <div><label className="text-xs font-bold block mb-1 text-yellow-800">{t('notebookCorrection')}</label><select value={report.notebookCorrection || ''} onChange={e => handleFieldUpdate('notebookCorrection', e.target.value)} className="w-full p-2 border rounded bg-white text-center"><option value="">-- % --</option>{percentageOptions.map(p => <option key={p} value={p}>{p}%</option>)}</select></div>
+                <div><label className="text-xs font-bold block mb-1 text-yellow-800">{t('preparationBook')}</label><select value={report.preparationBook || ''} onChange={e => handleFieldUpdate('preparationBook', e.target.value)} className="w-full p-2 border rounded bg-white text-center"><option value="">-- % --</option>{percentageOptions.map(p => <option key={p} value={p}>{p}%</option>)}</select></div>
+                <div><label className="text-xs font-bold block mb-1 text-yellow-800">{t('questionsGlossary')}</label><select value={report.questionsGlossary || ''} onChange={e => handleFieldUpdate('questionsGlossary', e.target.value)} className="w-full p-2 border rounded bg-white text-center"><option value="">-- % --</option>{percentageOptions.map(p => <option key={p} value={p}>{p}%</option>)}</select></div>
             </div>
 
             <div className="space-y-4">
                 <CustomizableInputSection title={t('programsUsed')} value={report.programsImplemented || ''} onChange={v => handleFieldUpdate('programsImplemented', v)} defaultItems={[]} localStorageKey="customPrograms" isList={true} />
                 <CustomizableInputSection title={t('strategiesUsed')} value={report.strategiesImplemented || ''} onChange={v => handleFieldUpdate('strategiesImplemented', v)} defaultItems={['التعلم التعاوني', 'العصف الذهني', 'الحوار والمناقشة']} localStorageKey="customStrategies" isList={true} />
-                <CustomizableInputSection title={t('toolsUsed')} value={report.toolsUsed || ''} onChange={v => handleFieldUpdate('toolsUsed', v)} defaultItems={['السبورة', 'جهاز العرض', 'نماذج ومجسمات']} localStorageKey="customTools" isList={true} />
-                <CustomizableInputSection title={t('sourcesUsed')} value={report.sourcesUsed || ''} onChange={v => handleFieldUpdate('sourcesUsed', v)} defaultItems={['الكتاب المدرسي', 'دليل المعلم', 'الانترنت']} localStorageKey="customSources" isList={true} />
+                <CustomizableInputSection title={t('toolsUsed')} value={report.toolsUsed || ''} onChange={v => handleFieldUpdate('toolsUsed', v)} defaultItems={['السبورة', 'جهاز العرض']} localStorageKey="customTools" isList={true} />
+                <CustomizableInputSection title={t('sourcesUsed')} value={report.sourcesUsed || ''} onChange={v => handleFieldUpdate('sourcesUsed', v)} defaultItems={['الكتاب المدرسي', 'الانترنت']} localStorageKey="customSources" isList={true} />
                 <CustomizableInputSection title={t('tasksDone')} value={report.tasksDone || ''} onChange={v => handleFieldUpdate('tasksDone', v)} defaultItems={[]} localStorageKey="customTasks" isList={true} />
-                <CustomizableInputSection title={t('testsDelivered')} value={report.testsDelivered || ''} onChange={v => handleFieldUpdate('testsDelivered', v)} defaultItems={['اختبار الشهر الأول', 'اختبار الشهر الثاني']} localStorageKey="customTests" isList={true} />
+                <CustomizableInputSection title={t('testsDelivered')} value={report.testsDelivered || ''} onChange={v => handleFieldUpdate('testsDelivered', v)} defaultItems={['اختبار الشهر الأول']} localStorageKey="customTests" isList={true} />
                 <CustomizableInputSection title={t('peerVisitsDone')} value={report.peerVisitsDone || ''} onChange={v => handleFieldUpdate('peerVisitsDone', v)} defaultItems={[]} localStorageKey="customPeerVisits" isList={true} />
             </div>
 
              <div className="flex flex-wrap justify-center gap-3 pt-4 border-t">
                 <button onClick={handleSave} className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all transform hover:scale-105" disabled={isSaving}>{isSaving ? `${t('save')}...` : t('saveWork')}</button>
-                <button onClick={() => exportSyllabusCoverage('txt', report, teacherName, t)} className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-800">{t('exportTxt')}</button>
-                <button onClick={() => exportSyllabusCoverage('pdf', report, teacherName, t)} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">{t('exportPdf')}</button>
-                <button onClick={() => exportSyllabusCoverage('excel', report, teacherName, t)} className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">{t('exportExcel')}</button>
-                <button onClick={() => exportSyllabusCoverage('whatsapp', report, teacherName, t)} className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600">{t('sendToWhatsApp')}</button>
+                <button onClick={() => exportSyllabusCoverage('txt', report, teacherName, t)} className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-800 transition-all transform hover:scale-105">{t('exportTxt')}</button>
+                <button onClick={() => exportSyllabusCoverage('pdf', report, teacherName, t)} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all transform hover:scale-105">{t('exportPdf')}</button>
+                <button onClick={() => exportSyllabusCoverage('excel', report, teacherName, t)} className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-all transform hover:scale-105">{t('exportExcel')}</button>
+                <button onClick={() => exportSyllabusCoverage('whatsapp', report, teacherName, t)} className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-all transform hover:scale-105">{t('sendToWhatsApp')}</button>
             </div>
         </div>
     );
@@ -528,16 +529,16 @@ const SyllabusCoverageManager: React.FC<SyllabusCoverageManagerProps> = ({
             {viewMode === 'table' && (
                 <div className="bg-white p-4 rounded-lg shadow-md border space-y-4 animate-fade-in">
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <input type="text" placeholder={t('searchForTeacher')} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="p-2 border rounded" />
-                        <select value={filterSubject} onChange={e => setFilterSubject(e.target.value)} className="p-2 border rounded">
+                        <input type="text" placeholder={t('searchForTeacher')} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="p-2 border rounded text-base" />
+                        <select value={filterSubject} onChange={e => setFilterSubject(e.target.value)} className="p-2 border rounded text-base">
                             <option value="all">كل المواد</option>
                             {SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
-                        <select value={filterGrade} onChange={e => setFilterGrade(e.target.value)} className="p-2 border rounded">
+                        <select value={filterGrade} onChange={e => setFilterGrade(e.target.value)} className="p-2 border rounded text-base">
                             <option value="all">كل الصفوف</option>
                             {GRADES.map(g => <option key={g} value={g}>{g}</option>)}
                         </select>
-                        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value as any)} className="p-2 border rounded">
+                        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value as any)} className="p-2 border rounded text-base">
                             <option value="all">كل الحالات</option>
                             <option value="ahead">{t('statusAhead')}</option>
                             <option value="behind">{t('statusBehind')}</option>
@@ -611,7 +612,7 @@ const SyllabusCoverageManager: React.FC<SyllabusCoverageManagerProps> = ({
                             placeholder={t('searchForTeacher')} 
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
-                            className="p-2 border rounded w-full md:w-64"
+                            className="p-2 border rounded w-full md:w-64 text-base"
                         />
                         <div className="flex items-center gap-4">
                             <label className="flex items-center gap-2 cursor-pointer">
@@ -637,7 +638,7 @@ const SyllabusCoverageManager: React.FC<SyllabusCoverageManagerProps> = ({
                                     className="w-5 h-5 text-primary rounded cursor-pointer"
                                 />
                             </div>
-                            <div className="flex-grow">
+                            <div className="flex-grow max-w-full overflow-hidden">
                                 <ReportEditor 
                                     report={report}
                                     allReports={reports}
