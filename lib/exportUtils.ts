@@ -4,7 +4,6 @@ import { Report, GeneralEvaluationReport, ClassSessionEvaluationReport, Teacher,
 declare const jspdf: any;
 declare const XLSX: any;
 
-// FIX: Export 'calculateReportPercentage' to be used in components for shared logic.
 export const calculateReportPercentage = (report: Report): number => {
     let allScores: number[] = [];
     if (report.evaluationType === 'general' || report.evaluationType === 'special') {
@@ -50,7 +49,6 @@ const getHeadStyles = () => ({ halign: 'center', fillColor: [22, 120, 109], text
 
 const SEPARATOR = '\n\n━━━━━━━━━━ ✨ ━━━━━━━━━━\n\n';
 
-// FIX: Added 'exportToTxt' for individual reports.
 export const exportToTxt = (report: Report, teacher: Teacher) => {
     const content = `Report for ${teacher.name}\nDate: ${report.date}\nScore: ${calculateReportPercentage(report).toFixed(2)}%`;
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
@@ -60,7 +58,6 @@ export const exportToTxt = (report: Report, teacher: Teacher) => {
     link.click();
 };
 
-// FIX: Added 'exportToPdf' for individual reports.
 export const exportToPdf = (report: Report, teacher: Teacher) => {
     const doc = setupPdfDoc();
     doc.text(`Report for ${teacher.name}`, 20, 20);
@@ -69,7 +66,6 @@ export const exportToPdf = (report: Report, teacher: Teacher) => {
     doc.save(`report_${teacher.name}_${report.date}.pdf`);
 };
 
-// FIX: Added 'exportToExcel' for individual reports.
 export const exportToExcel = (report: Report, teacher: Teacher) => {
     const data = [
         ["Teacher", teacher.name],
@@ -82,13 +78,91 @@ export const exportToExcel = (report: Report, teacher: Teacher) => {
     XLSX.writeFile(wb, `report_${teacher.name}_${report.date}.xlsx`);
 };
 
-// FIX: Added 'sendToWhatsApp' for individual reports.
 export const sendToWhatsApp = (report: Report, teacher: Teacher) => {
-    const content = `*Report for ${teacher.name}*\nDate: ${report.date}\nScore: ${calculateReportPercentage(report).toFixed(2)}%`;
+    let content = "";
+    const percentage = calculateReportPercentage(report).toFixed(1);
+
+    if (report.evaluationType === 'class_session') {
+        const r = report as ClassSessionEvaluationReport;
+        const subTypeTitle = r.subType === 'brief' ? "التقييم المختصر" : r.subType === 'extended' ? "التقييم الموسع" : "تقييم حسب المادة";
+        
+        content += `*📝 تقرير تقييم الحصة الدراسية (${subTypeTitle})*\n\n`;
+        content += `🏫 *المدرسة:* ${r.school}\n`;
+        content += `👨‍🏫 *المعلم:* ${teacher.name}\n`;
+        content += `👤 *المشرف:* ${r.supervisorName || 'غير محدد'}\n`;
+        content += `📅 *التاريخ:* ${r.date} | *الفصل:* ${r.semester}\n`;
+        content += `📖 *المادة:* ${r.subject} | *الصف:* ${r.grades}\n`;
+        content += `🏢 *الفرع:* ${r.branch}\n`;
+        content += `🕒 *نوع الزيارة:* ${r.visitType}\n`;
+        content += `🔢 *رقم الدرس:* ${r.lessonNumber} | *عنوانه:* ${r.lessonName}\n`;
+        content += `--------------------------------\n`;
+        content += `📈 *نسبة الأداء الإجمالية: ${percentage}%*\n`;
+        content += `--------------------------------\n\n`;
+
+        // Criteria Groups
+        r.criterionGroups.forEach(group => {
+            content += `📌 *${group.title}:*\n`;
+            group.criteria.forEach(c => {
+                content += `✅ ${c.label}: (${c.score}/4)\n`;
+            });
+            content += `\n`;
+        });
+
+        content += `--------------------------------\n`;
+        
+        // Qualitative Data
+        if (r.strategies) content += `💡 *الاستراتيجيات:* ${r.strategies}\n\n`;
+        if (r.tools) content += `🛠️ *الوسائل:* ${r.tools}\n\n`;
+        if (r.sources) content += `📚 *المصادر:* ${r.sources}\n\n`;
+        if (r.programs) content += `💻 *البرامج:* ${r.programs}\n\n`;
+        
+        content += `--------------------------------\n`;
+        
+        // Feedback
+        if (r.positives) content += `👍 *الإيجابيات:*\n${r.positives}\n\n`;
+        if (r.notesForImprovement) content += `📝 *ملاحظات للتحسين:*\n${r.notesForImprovement}\n\n`;
+        if (r.recommendations) content += `🎯 *التوصيات:*\n${r.recommendations}\n\n`;
+        if (r.employeeComment) content += `✍️ *تعليق الموظف:*\n${r.employeeComment}\n\n`;
+
+    } else if (report.evaluationType === 'general') {
+        const r = report as GeneralEvaluationReport;
+        content += `*📊 تقرير التقييم العام*\n\n`;
+        content += `🏫 *المدرسة:* ${r.school}\n`;
+        content += `👨‍🏫 *المعلم:* ${teacher.name}\n`;
+        content += `📅 *التاريخ:* ${r.date} | *الفصل:* ${r.semester}\n`;
+        content += `📖 *المادة:* ${r.subject} | *الصف:* ${r.grades}\n`;
+        content += `--------------------------------\n`;
+        content += `📈 *نسبة الأداء الإجمالية: ${percentage}%*\n`;
+        content += `--------------------------------\n\n`;
+
+        r.criteria.forEach(c => {
+            content += `✅ ${c.label}: (${c.score}/4)\n`;
+        });
+        
+        content += `\n`;
+        if (r.strategies) content += `💡 *الاستراتيجيات:* ${r.strategies}\n`;
+        if (r.tools) content += `🛠️ *الوسائل:* ${r.tools}\n`;
+        if (r.sources) content += `📚 *المصادر:* ${r.sources}\n`;
+        if (r.programs) content += `💻 *البرامج:* ${r.programs}\n`;
+
+    } else if (report.evaluationType === 'special') {
+        const r = report as SpecialReport;
+        content += `*⭐ تقرير خاص: ${r.templateName}*\n\n`;
+        content += `🏫 *المدرسة:* ${r.school}\n`;
+        content += `👨‍🏫 *المعلم:* ${teacher.name}\n`;
+        content += `📅 *التاريخ:* ${r.date}\n`;
+        content += `--------------------------------\n`;
+        content += `📈 *نسبة الأداء الإجمالية: ${percentage}%*\n`;
+        content += `--------------------------------\n\n`;
+
+        r.criteria.forEach(c => {
+            content += `✅ ${c.label}: (${c.score}/4)\n`;
+        });
+    }
+
     window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(content)}`, '_blank');
 };
 
-// FIX: Added 'exportAggregatedToTxt' for bulk reports.
 export const exportAggregatedToTxt = (reports: Report[], teachers: Teacher[]) => {
     let content = "Aggregated Reports Summary\n\n";
     reports.forEach(r => {
@@ -102,7 +176,6 @@ export const exportAggregatedToTxt = (reports: Report[], teachers: Teacher[]) =>
     link.click();
 };
 
-// FIX: Added 'exportAggregatedToPdf' for bulk reports.
 export const exportAggregatedToPdf = (reports: Report[], teachers: Teacher[]) => {
     const doc = setupPdfDoc();
     let y = 20;
@@ -116,7 +189,6 @@ export const exportAggregatedToPdf = (reports: Report[], teachers: Teacher[]) =>
     doc.save("aggregated_reports.pdf");
 };
 
-// FIX: Added 'exportAggregatedToExcel' for bulk reports.
 export const exportAggregatedToExcel = (reports: Report[], teachers: Teacher[]) => {
     const data = [["Teacher", "Date", "Score %"]];
     reports.forEach(r => {
@@ -129,7 +201,6 @@ export const exportAggregatedToExcel = (reports: Report[], teachers: Teacher[]) 
     XLSX.writeFile(wb, "aggregated_reports.xlsx");
 };
 
-// FIX: Added 'sendAggregatedToWhatsApp' for bulk reports.
 export const sendAggregatedToWhatsApp = (reports: Report[], teachers: Teacher[]) => {
     let content = "*Aggregated Reports Summary*\n\n";
     reports.forEach(r => {
@@ -139,7 +210,6 @@ export const sendAggregatedToWhatsApp = (reports: Report[], teachers: Teacher[])
     window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(content)}`, '_blank');
 };
 
-// FIX: Added 'exportTasks' for task plans.
 export const exportTasks = (format: 'txt' | 'pdf' | 'excel' | 'whatsapp', tasks: Task[], year?: string) => {
     const content = tasks.map(t => `• ${t.description} [${t.status}]`).join('\n');
     if (format === 'txt') {
@@ -165,16 +235,13 @@ export const exportTasks = (format: 'txt' | 'pdf' | 'excel' | 'whatsapp', tasks:
     }
 };
 
-// FIX: Added 'exportMeetingSummary' for meeting indicators.
 export const exportMeetingSummary = ({ format, stats, dateRange, t }: any) => {
     const content = `${t('meetingOutcomesReport')}\nTotal: ${stats.total}\nExecuted: ${stats.executed} (${stats.percentages.executed.toFixed(1)}%)`;
     if (format === 'whatsapp') {
         window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(content)}`, '_blank');
     }
-    // Implement other formats if needed...
 };
 
-// FIX: Added 'exportPeerVisits' for peer visit tools.
 export const exportPeerVisits = ({ format, visits, academicYear }: any) => {
     const content = visits.map((v: PeerVisit) => `• ${v.visitingTeacher} visited ${v.visitedTeacher}`).join('\n');
     if (format === 'pdf') {
@@ -185,7 +252,6 @@ export const exportPeerVisits = ({ format, visits, academicYear }: any) => {
     }
 };
 
-// FIX: Added 'exportSupervisorySummary' generic summary tool.
 export const exportSupervisorySummary = ({ format, title, data, t }: any) => {
     const content = `*${title}*\n\n` + data.join('\n');
     if (format === 'whatsapp') {
@@ -198,7 +264,6 @@ export const exportSupervisorySummary = ({ format, title, data, t }: any) => {
     }
 };
 
-// FIX: Added 'exportKeyMetrics' for dashboard.
 export const exportKeyMetrics = (format: 'txt' | 'pdf' | 'excel' | 'whatsapp', stats: any, t: any) => {
     const content = `Total Teachers: ${stats.totalTeachers}\nTotal Reports: ${stats.totalReports}\nAvg Performance: ${stats.overallAverage.toFixed(1)}%`;
     if (format === 'whatsapp') {
@@ -206,24 +271,16 @@ export const exportKeyMetrics = (format: 'txt' | 'pdf' | 'excel' | 'whatsapp', s
     }
 };
 
-// FIX: Added 'exportEvaluationAnalysis' for dashboard details.
 export const exportEvaluationAnalysis = (format: string, analysis: any[], t: any) => {
-    // Basic implementation
 };
 
-// FIX: Added 'exportMeeting' for individual meeting records.
 export const exportMeeting = ({ format, meeting }: any) => {
-    // Basic implementation
 };
 
-// FIX: Added 'exportSyllabusPlan' for syllabus planner.
 export const exportSyllabusPlan = (format: string, plan: SyllabusPlan, t: any) => {
-    // Basic implementation
 };
 
-// FIX: Added 'exportSupervisoryPlan' for supervisory plan tool.
 export const exportSupervisoryPlan = (format: string, planWrapper: SupervisoryPlanWrapper, headers: any, t: any, selectedMonths?: string[]) => {
-    // Basic implementation
 };
 
 export const exportSyllabusCoverage = (
