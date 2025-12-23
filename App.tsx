@@ -64,7 +64,6 @@ const AppContent: React.FC = () => {
     setReports(prev => prev.filter(r => r.teacherId !== teacherId));
   };
   
-  // تحديث دالة الحفظ لتشمل دائماً اسم المدرسة لضمان الفصل
   const saveData = <T extends { authorId?: string, academicYear?: string, schoolName?: string, school?: string }>(
     setter: React.Dispatch<React.SetStateAction<T[]>>,
     data: T & { id: string }
@@ -73,8 +72,8 @@ const AppContent: React.FC = () => {
           ...data,
           authorId: currentUser?.id,
           academicYear: academicYear,
-          schoolName: selectedSchool, // للمكونات التي تستخدم schoolName
-          school: selectedSchool,     // للمكونات التي تستخدم school
+          schoolName: selectedSchool || data.schoolName,
+          school: selectedSchool || data.school,
       };
       setter(prev => {
           const existingIndex = prev.findIndex(item => (item as any).id === dataToSave.id);
@@ -123,7 +122,7 @@ const AppContent: React.FC = () => {
     setSyllabusPlans(prev => prev.filter(s => s.id !== syllabusId));
   };
 
-  // محرك الفلترة الشامل لضمان عزل البيانات بين المدارس
+  // محرك الفلترة الذكي لاستعادة البيانات القديمة
   const userFilteredData = useMemo(() => {
     if (!currentUser || !selectedSchool) {
         return {
@@ -134,9 +133,18 @@ const AppContent: React.FC = () => {
     }
     
     const isMainAdmin = hasPermission('all');
+    const firstSchoolName = schools[0]?.name || 'مدارس الرائد النموذجية';
     
-    // 1. فلترة المعلمين حسب المدرسة
-    const allTeachersInSchool = teachers.filter(t => t.schoolName === selectedSchool);
+    // دالة مساعدة لتحديد ما إذا كان السجل ينتمي للمدرسة المختارة (مع دعم البيانات القديمة)
+    const isItemInSelectedSchool = (item: any) => {
+        const itemSchool = item.schoolName || item.school;
+        // إذا لم يكن هناك مدرسة مسجلة، نعتبرها تابعة للمدرسة الأولى (الرائد)
+        if (!itemSchool) return selectedSchool === firstSchoolName;
+        return itemSchool === selectedSchool;
+    };
+
+    // 1. فلترة المعلمين
+    const allTeachersInSchool = teachers.filter(isItemInSelectedSchool);
     
     let visibleTeachers: Teacher[] = [];
     if (!hasPermission('view_teachers')) {
@@ -148,21 +156,21 @@ const AppContent: React.FC = () => {
     }
     const visibleTeacherIds = new Set(visibleTeachers.map(t => t.id));
 
-    // 2. فلترة التقارير (حسب المدرسة + حسب صلاحية المعلم)
-    const visibleReports = reports.filter(r => r.school === selectedSchool && visibleTeacherIds.has(r.teacherId));
+    // 2. فلترة التقارير
+    const visibleReports = reports.filter(r => isItemInSelectedSchool(r) && visibleTeacherIds.has(r.teacherId));
     
-    // 3. فلترة البيانات العامة للمدرسة (قوالب، معايير، خطط سير)
+    // 3. فلترة البيانات العامة للمدرسة
     const schoolFilter = <T extends { schoolName?: string, school?: string }>(data: T[]) => {
-        return data.filter(d => (d.schoolName === selectedSchool || d.school === selectedSchool));
+        return data.filter(isItemInSelectedSchool);
     };
 
-    // 4. فلترة البيانات المرتبطة بالمؤلف (مهام، اجتماعات، خطط إشرافية) + المدرسة
+    // 4. فلترة البيانات المرتبطة بالمؤلف + المدرسة
     const authorAndSchoolFilter = <T extends { authorId?: string, schoolName?: string, school?: string }>(data: T[]) => {
-        const inSchool = data.filter(d => (d.schoolName === selectedSchool || d.school === selectedSchool));
+        const inSchool = data.filter(isItemInSelectedSchool);
         return isMainAdmin ? inSchool : inSchool.filter(d => d.authorId === currentUser.id);
     };
 
-    // 5. فلترة المستخدمين/الأكواد حسب المدرسة
+    // 5. فلترة المستخدمين
     const usersInSchool = users.filter(u => !u.schoolName || u.schoolName === selectedSchool);
 
     return {
@@ -181,7 +189,7 @@ const AppContent: React.FC = () => {
         supervisoryPlans: authorAndSchoolFilter(supervisoryPlans),
         usersInSchool: usersInSchool
     };
-  }, [currentUser, selectedSchool, academicYear, teachers, reports, customCriteria, specialReportTemplates, syllabusPlans, tasks, meetings, peerVisits, deliverySheets, bulkMessages, syllabusCoverageReports, supervisoryPlans, users, hasPermission]);
+  }, [currentUser, selectedSchool, academicYear, teachers, reports, customCriteria, specialReportTemplates, syllabusPlans, tasks, meetings, peerVisits, deliverySheets, bulkMessages, syllabusCoverageReports, supervisoryPlans, users, schools, hasPermission]);
 
 
   if (!isAuthenticated) {
@@ -210,7 +218,7 @@ const AppContent: React.FC = () => {
           peerVisits={userFilteredData.peerVisits}
           deliverySheets={userFilteredData.deliverySheets}
           bulkMessages={userFilteredData.bulkMessages}
-          supervisoryPlans={userFilteredData.supervisoryPlans} // استخدام المفلترة
+          supervisoryPlans={userFilteredData.supervisoryPlans}
           setSupervisoryPlans={setSupervisoryPlans}
           selectedSchool={selectedSchool!}
           addTeacher={addTeacher}
@@ -235,7 +243,7 @@ const AppContent: React.FC = () => {
           setDeliverySheets={setDeliverySheets}
           deleteDeliverySheet={deleteDeliverySheet}
           setBulkMessages={setBulkMessages}
-          usersInSchool={userFilteredData.usersInSchool} // تمرير المستخدمين المفلترين
+          usersInSchool={userFilteredData.usersInSchool}
         />
       </main>
       <ScrollButtons />
