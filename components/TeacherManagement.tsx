@@ -1,12 +1,11 @@
+
 import React, { useState, useMemo } from 'react';
-// FIX: Changed import from 'Syllabus' to 'SyllabusPlan' as 'Syllabus' is deprecated.
-import { Teacher, Report, CustomCriterion, SpecialReportTemplate, SyllabusPlan, GeneralCriterion, SpecialReportPlacement, Task, Meeting, PeerVisit, DeliverySheet, BulkMessage, SyllabusCoverageReport, ClassSessionCriterionGroup, SupervisoryPlanWrapper } from '../types';
+import { Teacher, Report, CustomCriterion, SpecialReportTemplate, SyllabusPlan, GeneralCriterion, SpecialReportPlacement, Task, Meeting, PeerVisit, DeliverySheet, BulkMessage, SyllabusCoverageReport, ClassSessionCriterionGroup, SupervisoryPlanWrapper, User } from '../types';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import TeacherList from './TeacherList';
 import ReportView from './ReportView';
 import AggregatedReports from './AggregatedReports';
-// FIX: PerformanceDashboard is not a default export. It needs to be imported as a named export. Let's assume it will be fixed to be a default export.
 import PerformanceDashboard from './PerformanceDashboard';
 import TaskPlan from './TaskPlan';
 import SupervisoryTools from './SupervisoryTools';
@@ -25,7 +24,6 @@ interface TeacherManagementProps {
   reports: Report[];
   customCriteria: CustomCriterion[];
   specialReportTemplates: SpecialReportTemplate[];
-  // FIX: Changed prop name and type from 'syllabi: Syllabus[]' to 'syllabusPlans: SyllabusPlan[]'
   syllabusPlans: SyllabusPlan[];
   syllabusCoverageReports: SyllabusCoverageReport[];
   tasks: Task[];
@@ -45,9 +43,7 @@ interface TeacherManagementProps {
   deleteCustomCriteria: (criterionIds: string[]) => void;
   saveSpecialReportTemplate: (template: SpecialReportTemplate) => void;
   deleteSpecialReportTemplate: (templateId: string) => void;
-  // FIX: Changed prop name and type from 'saveSyllabus: (syllabus: Syllabus)' to 'saveSyllabusPlan: (syllabus: SyllabusPlan)'.
   saveSyllabusPlan: (syllabus: SyllabusPlan) => void;
-  // FIX: Changed prop name from 'deleteSyllabus' to 'deleteSyllabusPlan'.
   deleteSyllabusPlan: (syllabusId: string) => void;
   setSyllabusCoverageReports: React.Dispatch<React.SetStateAction<SyllabusCoverageReport[]>>;
   setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
@@ -60,11 +56,12 @@ interface TeacherManagementProps {
   setDeliverySheets: React.Dispatch<React.SetStateAction<DeliverySheet[]>>;
   deleteDeliverySheet: (sheetId: string) => void;
   setBulkMessages: React.Dispatch<React.SetStateAction<BulkMessage[]>>;
+  usersInSchool: User[]; // مضافة لفلترة الأكواد
 }
 
 type View = 'teachers' | 'syllabus_coverage' | 'aggregated_reports' | 'performance_dashboard' | 'special_reports' | 'syllabus' | 'task_plan' | 'supervisory_tools' | 'bulk_message' | 'user_management' | 'supervisory_plan' | 'evaluation_summary';
 
-// --- CriterionManagerModal moved outside of TeacherManagement to prevent re-instantiation on re-renders ---
+// --- CriterionManagerModal ---
 interface CriterionManagerModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -170,13 +167,11 @@ const CriterionManagerModal: React.FC<CriterionManagerModalProps> = ({ isOpen, o
     const { t } = useLanguage();
     const [activeTab, setActiveTab] = useState<'add' | 'delete'>('add');
     
-    // State for Add tab
     const [addLabel, setAddLabel] = useState('');
     const [addType, setAddType] = useState<'general' | 'class_session'>('general');
     const [addScope, setAddScope] = useState<'general' | 'specific'>('general');
     const [addSelectedTeacherIds, setAddSelectedTeacherIds] = useState<string[]>([]);
 
-    // State for Delete (Hide) tab
     const [selectedToDelete, setSelectedToDelete] = useState<Set<string>>(new Set());
     const [showDeletionOptions, setShowDeletionOptions] = useState(false);
     
@@ -353,12 +348,12 @@ const CriterionManagerModal: React.FC<CriterionManagerModalProps> = ({ isOpen, o
 
 const TeacherManagement: React.FC<TeacherManagementProps> = (props) => {
   const { 
-    // FIX: Updated destructured props to match the new prop names.
     teachers, allTeachers, reports, customCriteria, specialReportTemplates, syllabusPlans, syllabusCoverageReports,
     tasks, meetings, peerVisits, deliverySheets, bulkMessages, supervisoryPlans, setSupervisoryPlans, selectedSchool,
     addTeacher, updateTeacher, deleteTeacher, saveReport, deleteReport, saveCustomCriterion, deleteCustomCriteria,
     saveSpecialReportTemplate, deleteSpecialReportTemplate, saveSyllabusPlan, deleteSyllabusPlan, setSyllabusCoverageReports,
-    setTasks, hiddenCriteria, manageHiddenCriteria, saveMeeting, deleteMeeting, setPeerVisits, deletePeerVisit, setDeliverySheets, deleteDeliverySheet, setBulkMessages
+    setTasks, hiddenCriteria, manageHiddenCriteria, saveMeeting, deleteMeeting, setPeerVisits, deletePeerVisit, setDeliverySheets, deleteDeliverySheet, setBulkMessages,
+    usersInSchool
   } = props;
 
   const { t } = useLanguage();
@@ -367,7 +362,6 @@ const TeacherManagement: React.FC<TeacherManagementProps> = (props) => {
   const [activeView, setActiveView] = useState<View>('teachers');
   const [isManagingCriteria, setIsManagingCriteria] = useState(false);
   const [initiallyOpenReportId, setInitiallyOpenReportId] = useState<string | null>(null);
-  // --- Global settings state ---
   const [supervisorName, setSupervisorName] = useState('');
   const [semester, setSemester] = useState<'الأول' | 'الثاني'>('الأول');
   
@@ -390,7 +384,6 @@ const TeacherManagement: React.FC<TeacherManagementProps> = (props) => {
       }
   };
   
-  // Special Reports Manager Component Logic
   const SpecialReportsManager = () => {
       const [editingTemplate, setEditingTemplate] = useState<SpecialReportTemplate | null>(null);
 
@@ -508,7 +501,7 @@ const TeacherManagement: React.FC<TeacherManagementProps> = (props) => {
       case 'evaluation_summary':
         return <EvaluationSummary reports={reports} teachers={allTeachers} onViewReport={handleViewReport} />;
       case 'user_management':
-        return <UserManagement allTeachers={allTeachers} />;
+        return <UserManagement allTeachers={allTeachers} usersInSchool={usersInSchool} />;
       case 'supervisory_plan':
         return <SupervisoryPlanComponent plans={supervisoryPlans} setPlans={setSupervisoryPlans} />;
       case 'task_plan':
@@ -568,10 +561,9 @@ const TeacherManagement: React.FC<TeacherManagementProps> = (props) => {
         if (selectedTeacher) {
           return <ReportView 
                     teacher={selectedTeacher} 
-                    reports={reports.filter(r => r.teacherId === selectedTeacher.id)} 
-                    customCriteria={customCriteria.filter(c => c.school === selectedSchool)}
+                    reports={reports} 
+                    customCriteria={customCriteria}
                     specialReportTemplates={specialReportTemplates.filter(t => t.placement.includes('teacher_reports'))}
-                    // FIX: Pass 'syllabusPlans' prop instead of 'syllabi'.
                     syllabusPlans={syllabusPlans}
                     onBack={handleBackToList} 
                     saveReport={saveReport} 
@@ -579,7 +571,6 @@ const TeacherManagement: React.FC<TeacherManagementProps> = (props) => {
                     updateTeacher={updateTeacher} 
                     saveCustomCriterion={saveCustomCriterion}
                     hiddenCriteria={hiddenCriteria}
-                    // Pass global settings
                     supervisorName={supervisorName}
                     semester={semester}
                     academicYear={academicYear!}

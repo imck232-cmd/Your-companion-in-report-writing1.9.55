@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { User, Teacher, Permission } from '../types';
 import { useAuth } from '../contexts/AuthContext';
@@ -7,11 +8,12 @@ import UserDetailsModal from './UserDetailsModal';
 
 interface UserManagementProps {
     allTeachers: Teacher[];
+    usersInSchool: User[]; // مضافة للفلترة
 }
 
-const UserManagement: React.FC<UserManagementProps> = ({ allTeachers }) => {
+const UserManagement: React.FC<UserManagementProps> = ({ allTeachers, usersInSchool }) => {
     const { t } = useLanguage();
-    const { users, setUsers, hasPermission } = useAuth();
+    const { setUsers, hasPermission, selectedSchool } = useAuth();
     const [isLoading, setIsLoading] = useState(false);
     const [editingUser, setEditingUser] = useState<User | null>(null);
 
@@ -23,7 +25,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ allTeachers }) => {
         setIsLoading(true);
         try {
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
-            const existingCodes = users.map(u => u.code);
+            const existingCodes = usersInSchool.map(u => u.code);
             const prompt = `Generate a unique 4-digit numeric code that is not sequential and not in this list: [${existingCodes.join(', ')}]. Respond ONLY with the 4-digit code.`;
             
             let attempts = 0;
@@ -33,7 +35,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ allTeachers }) => {
                     contents: prompt,
                 });
 
-                const text = response.text?.trim().match(/\d{4}/)?.[0]; // Extract first 4-digit number
+                const text = response.text?.trim().match(/\d{4}/)?.[0]; 
                 if (text && !existingCodes.includes(text)) {
                     setIsLoading(false);
                     return text;
@@ -43,11 +45,10 @@ const UserManagement: React.FC<UserManagementProps> = ({ allTeachers }) => {
             throw new Error("AI failed to generate a unique code.");
         } catch (error) {
             console.error("Code generation failed:", error);
-            // Fallback to a random generator
             let randomCode = '';
             do {
                 randomCode = Math.floor(1000 + Math.random() * 9000).toString();
-            } while (users.map(u => u.code).includes(randomCode));
+            } while (usersInSchool.map(u => u.code).includes(randomCode));
             setIsLoading(false);
             return randomCode;
         }
@@ -59,7 +60,8 @@ const UserManagement: React.FC<UserManagementProps> = ({ allTeachers }) => {
             name: '',
             code: '',
             permissions: [],
-            managedTeacherIds: []
+            managedTeacherIds: [],
+            schoolName: selectedSchool || '' // ربط المستخدم بالمدرسة
         };
         setEditingUser(newUser);
     };
@@ -70,7 +72,6 @@ const UserManagement: React.FC<UserManagementProps> = ({ allTeachers }) => {
             if (existing) {
                 return prev.map(u => u.id === userToSave.id ? userToSave : u);
             }
-            // Fix for new user ID
             const finalNewUser = { ...userToSave, id: `user-${Date.now()}`};
             return [...prev, finalNewUser];
         });
@@ -102,7 +103,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ allTeachers }) => {
                 </button>
             </div>
             <div className="space-y-3 max-h-[70vh] overflow-y-auto">
-                {users.map(user => (
+                {usersInSchool.map(user => (
                     <div key={user.id} className="p-4 border rounded-lg flex justify-between items-center">
                         <div>
                             <p className="font-bold">{user.name}</p>

@@ -1,6 +1,5 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-// FIX: Import 'useLanguage' hook to resolve 'Cannot find name' error.
 import { LanguageProvider, useLanguage } from './i18n/LanguageContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { translations } from './i18n/translations';
@@ -10,15 +9,14 @@ import TeacherManagement from './components/TeacherManagement';
 import LoginModal from './components/LoginModal';
 import ScrollButtons from './components/ScrollButtons';
 import { Teacher, Report, CustomCriterion, School, SpecialReportTemplate, SyllabusPlan, Task, Meeting, PeerVisit, DeliverySheet, BulkMessage, User, SyllabusCoverageReport, SupervisoryPlanWrapper } from './types';
-import { THEMES, INITIAL_TEACHERS, INITIAL_SCHOOLS, INITIAL_SUPERVISORY_PLANS } from './constants';
+import { THEMES, INITIAL_TEACHERS, INITIAL_SCHOOLS, INITIAL_SUPERVISORY_PLANS, INITIAL_USERS } from './constants';
 import useLocalStorage from './hooks/useLocalStorage';
 
 const AppContent: React.FC = () => {
-  const { isAuthenticated, selectedSchool, academicYear, hasPermission, currentUser, setSelectedSchool } = useAuth();
+  const { isAuthenticated, selectedSchool, academicYear, hasPermission, currentUser, setSelectedSchool, users, setUsers } = useAuth();
   const { language, t } = useLanguage();
   const [theme, setTheme] = useLocalStorage<string>('theme', 'default');
   
-  // Data states - now representing the entire dataset for the app
   const [schools, setSchools] = useLocalStorage<School[]>('schools', INITIAL_SCHOOLS);
   const [teachers, setTeachers] = useLocalStorage<Teacher[]>('teachers', INITIAL_TEACHERS);
   const [reports, setReports] = useLocalStorage<Report[]>('reports', []);
@@ -66,14 +64,17 @@ const AppContent: React.FC = () => {
     setReports(prev => prev.filter(r => r.teacherId !== teacherId));
   };
   
-  const saveData = <T extends { authorId?: string, academicYear?: string }>(
+  // تحديث دالة الحفظ لتشمل دائماً اسم المدرسة لضمان الفصل
+  const saveData = <T extends { authorId?: string, academicYear?: string, schoolName?: string, school?: string }>(
     setter: React.Dispatch<React.SetStateAction<T[]>>,
     data: T & { id: string }
   ) => {
       const dataToSave = {
           ...data,
           authorId: currentUser?.id,
-          academicYear: academicYear
+          academicYear: academicYear,
+          schoolName: selectedSchool, // للمكونات التي تستخدم schoolName
+          school: selectedSchool,     // للمكونات التي تستخدم school
       };
       setter(prev => {
           const existingIndex = prev.findIndex(item => (item as any).id === dataToSave.id);
@@ -93,7 +94,6 @@ const AppContent: React.FC = () => {
 
         targets.forEach(targetId => {
             const existing = newHidden[targetId] || [];
-            // Use a Set to ensure uniqueness before saving
             const updated = [...new Set([...existing, ...criteriaIds])];
             newHidden[targetId] = updated;
         });
@@ -123,20 +123,19 @@ const AppContent: React.FC = () => {
     setSyllabusPlans(prev => prev.filter(s => s.id !== syllabusId));
   };
 
-
-  // --- Data filtering based on current user permissions ---
+  // محرك الفلترة الشامل لضمان عزل البيانات بين المدارس
   const userFilteredData = useMemo(() => {
     if (!currentUser || !selectedSchool) {
         return {
             teachers: [], reports: [], customCriteria: [], specialReportTemplates: [], syllabusPlans: [],
             tasks: [], meetings: [], peerVisits: [], deliverySheets: [], bulkMessages: [], allTeachersInSchool: [],
-            syllabusCoverageReports: []
+            syllabusCoverageReports: [], supervisoryPlans: [], usersInSchool: []
         };
     }
     
     const isMainAdmin = hasPermission('all');
     
-    // 1. Filter Teachers
+    // 1. فلترة المعلمين حسب المدرسة
     const allTeachersInSchool = teachers.filter(t => t.schoolName === selectedSchool);
     
     let visibleTeachers: Teacher[] = [];
@@ -149,37 +148,40 @@ const AppContent: React.FC = () => {
     }
     const visibleTeacherIds = new Set(visibleTeachers.map(t => t.id));
 
-    // 2. Filter data linked to teachers (e.g., Reports)
-    // Admin sees all reports in the school. A supervisor sees all reports for their assigned teachers.
-    const visibleReports = reports.filter(r => visibleTeacherIds.has(r.teacherId));
+    // 2. فلترة التقارير (حسب المدرسة + حسب صلاحية المعلم)
+    const visibleReports = reports.filter(r => r.school === selectedSchool && visibleTeacherIds.has(r.teacherId));
     
-    // 3. Filter data linked to authors (e.g., Tasks, Meetings)
-    // Admin sees all. Others see only their own.
-    const filterByAuthor = <T extends { authorId?: string }>(data: T[]) => {
-        return isMainAdmin ? data : data.filter(d => d.authorId === currentUser.id);
+    // 3. فلترة البيانات العامة للمدرسة (قوالب، معايير، خطط سير)
+    const schoolFilter = <T extends { schoolName?: string, school?: string }>(data: T[]) => {
+        return data.filter(d => (d.schoolName === selectedSchool || d.school === selectedSchool));
     };
 
-    const schoolAndYearFilter = <T extends { schoolName?: string, academicYear?: string }>(data: T[]) => {
-        return data.filter(d => d.schoolName === selectedSchool && d.academicYear === academicYear);
-    }
+    // 4. فلترة البيانات المرتبطة بالمؤلف (مهام، اجتماعات، خطط إشرافية) + المدرسة
+    const authorAndSchoolFilter = <T extends { authorId?: string, schoolName?: string, school?: string }>(data: T[]) => {
+        const inSchool = data.filter(d => (d.schoolName === selectedSchool || d.school === selectedSchool));
+        return isMainAdmin ? inSchool : inSchool.filter(d => d.authorId === currentUser.id);
+    };
+
+    // 5. فلترة المستخدمين/الأكواد حسب المدرسة
+    const usersInSchool = users.filter(u => !u.schoolName || u.schoolName === selectedSchool);
 
     return {
         teachers: visibleTeachers,
         allTeachersInSchool: allTeachersInSchool,
         reports: visibleReports,
-        // School-wide data is filtered by school, permissions hide the UI to manage them.
-        customCriteria: customCriteria.filter(c => c.school === selectedSchool),
-        specialReportTemplates: specialReportTemplates.filter(t => t.schoolName === selectedSchool),
-        syllabusPlans: syllabusPlans.filter(s => s.schoolName === selectedSchool),
-        syllabusCoverageReports: filterByAuthor(schoolAndYearFilter(syllabusCoverageReports)),
-        // Author-specific data
-        tasks: filterByAuthor(tasks),
-        meetings: filterByAuthor(meetings),
-        peerVisits: filterByAuthor(peerVisits),
-        deliverySheets: filterByAuthor(deliverySheets),
-        bulkMessages: filterByAuthor(bulkMessages)
+        customCriteria: schoolFilter(customCriteria),
+        specialReportTemplates: schoolFilter(specialReportTemplates),
+        syllabusPlans: schoolFilter(syllabusPlans),
+        syllabusCoverageReports: authorAndSchoolFilter(syllabusCoverageReports),
+        tasks: authorAndSchoolFilter(tasks),
+        meetings: authorAndSchoolFilter(meetings),
+        peerVisits: authorAndSchoolFilter(peerVisits),
+        deliverySheets: authorAndSchoolFilter(deliverySheets),
+        bulkMessages: authorAndSchoolFilter(bulkMessages),
+        supervisoryPlans: authorAndSchoolFilter(supervisoryPlans),
+        usersInSchool: usersInSchool
     };
-  }, [currentUser, selectedSchool, academicYear, teachers, reports, customCriteria, specialReportTemplates, syllabusPlans, tasks, meetings, peerVisits, deliverySheets, bulkMessages, syllabusCoverageReports, hasPermission]);
+  }, [currentUser, selectedSchool, academicYear, teachers, reports, customCriteria, specialReportTemplates, syllabusPlans, tasks, meetings, peerVisits, deliverySheets, bulkMessages, syllabusCoverageReports, supervisoryPlans, users, hasPermission]);
 
 
   if (!isAuthenticated) {
@@ -199,7 +201,7 @@ const AppContent: React.FC = () => {
           teachers={userFilteredData.teachers}
           allTeachers={userFilteredData.allTeachersInSchool}
           reports={userFilteredData.reports}
-          customCriteria={customCriteria} // Pass unfiltered for manager
+          customCriteria={userFilteredData.customCriteria} 
           specialReportTemplates={userFilteredData.specialReportTemplates}
           syllabusPlans={userFilteredData.syllabusPlans}
           syllabusCoverageReports={userFilteredData.syllabusCoverageReports}
@@ -208,7 +210,7 @@ const AppContent: React.FC = () => {
           peerVisits={userFilteredData.peerVisits}
           deliverySheets={userFilteredData.deliverySheets}
           bulkMessages={userFilteredData.bulkMessages}
-          supervisoryPlans={supervisoryPlans}
+          supervisoryPlans={userFilteredData.supervisoryPlans} // استخدام المفلترة
           setSupervisoryPlans={setSupervisoryPlans}
           selectedSchool={selectedSchool!}
           addTeacher={addTeacher}
@@ -223,7 +225,7 @@ const AppContent: React.FC = () => {
           saveSyllabusPlan={(syllabus) => saveData(setSyllabusPlans as any, syllabus)}
           deleteSyllabusPlan={deleteSyllabusPlan}
           setSyllabusCoverageReports={setSyllabusCoverageReports}
-          setTasks={setTasks} // Pass full setter for local manipulation in component
+          setTasks={setTasks} 
           hiddenCriteria={hiddenCriteria}
           manageHiddenCriteria={manageHiddenCriteria}
           saveMeeting={(meeting) => saveData(setMeetings, meeting)}
@@ -233,6 +235,7 @@ const AppContent: React.FC = () => {
           setDeliverySheets={setDeliverySheets}
           deleteDeliverySheet={deleteDeliverySheet}
           setBulkMessages={setBulkMessages}
+          usersInSchool={userFilteredData.usersInSchool} // تمرير المستخدمين المفلترين
         />
       </main>
       <ScrollButtons />

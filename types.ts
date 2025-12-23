@@ -1,13 +1,13 @@
 
-// FIX: Removed an incorrect import of 'ClassSessionCriterionGroup'. The type is defined in this file.
+// types.ts
+
 export type Language = 'ar' | 'en';
 
-// --- New Auth and User Management Types ---
 export type Permission = 
   'all' | 
   'manage_users' | 
   'change_school' | 
-  'view_supervisory_plan' | // New permission
+  'view_supervisory_plan' | 
   'view_task_plan' | 
   'view_supervisory_tools' |
   'view_meeting_minutes' |
@@ -18,27 +18,27 @@ export type Permission =
   'add_teacher' |
   'edit_teacher' |
   'delete_teacher' |
-  'view_reports_for_specific_teachers' | // This now acts as a "scoping" permission
+  'view_reports_for_specific_teachers' | 
   'create_general_report' |
   'create_class_session_report' |
   'create_special_report' |
-  'delete_report' | // New granular permission
+  'delete_report' | 
   'view_syllabus' |
   'view_bulk_message' |
   'view_aggregated_reports' |
   'view_performance_dashboard' |
   'view_special_reports_admin' |
   'manage_criteria' |
-  'view_syllabus_coverage'; // New permission for the new feature
+  'view_syllabus_coverage';
 
 export interface User {
   id: string;
   name: string;
   code: string;
   permissions: Permission[];
-  managedTeacherIds?: string[]; // For teacher scoping permission
+  managedTeacherIds?: string[];
+  schoolName?: string; // مضافة للعزل
 }
-
 
 export interface School {
   id: string;
@@ -49,19 +49,17 @@ export interface Teacher {
   id: string;
   name: string;
   schoolName: string; 
-  // --- Expanded Fields ---
   qualification?: string;
   specialization?: string;
-  subjects?: string; // Comma-separated list
-  gradesTaught?: string; // Comma-separated list
-  sectionsTaught?: string; // Comma-separated list
+  subjects?: string;
+  gradesTaught?: string;
+  sectionsTaught?: string;
   weeklyHours?: number | string;
   otherSchoolTasks?: string;
   yearsOfExperience?: number | string;
   yearsInSchool?: number | string;
   phoneNumber?: string;
   branch?: 'main' | 'boys' | 'girls' | 'other' | string; 
-  // --- Deprecated fields, kept for backward compatibility ---
   subject?: string;
   grades?: string;
 }
@@ -74,12 +72,10 @@ export interface BaseReport {
   subject: string;
   grades: string;
   branch: string;
-  // --- New Global Fields ---
   supervisorName?: string;
   semester?: 'الأول' | 'الثاني';
   authorId?: string;
   academicYear?: string;
-  // --- New Field for Syllabus Progress ---
   syllabusProgress?: {
       status: 'ahead' | 'on_track' | 'behind';
       plannedLesson: string;
@@ -87,7 +83,6 @@ export interface BaseReport {
   plannedSyllabusLesson?: string;
 }
 
-// General Evaluation Types
 export interface GeneralCriterion {
   id:string;
   label: string;
@@ -105,8 +100,6 @@ export interface GeneralEvaluationReport extends BaseReport {
   sources: string;
 }
 
-
-// Class Session Evaluation Types
 export type VisitType = 'استطلاعية' | 'تقييمية 1' | 'تقييمية 2' | 'فنية إشرافية' | 'تطويرية' | 'تبادلية' | 'تشخيصية' | 'علاجية';
 export type ClassNumber = 'الأول' | 'الثاني' | 'الثالث' | 'الرابع' | 'الخامس' | 'السادس' | 'السابع' | 'الثامن' | 'التاسع' | 'العاشر' | 'الحادي عشر' | 'الثاني عشر';
 export type Section = 'أ' | 'ب' | 'ج' | 'د' | 'هـ' | 'و' | 'ز' | 'ح' | 'ط';
@@ -126,8 +119,6 @@ export interface ClassSessionCriterionGroup {
 export interface ClassSessionEvaluationReport extends BaseReport {
   evaluationType: 'class_session';
   subType: 'brief' | 'extended' | 'subject_specific';
-  // supervisorName: string; // Moved to BaseReport
-  // semester: 'الأول' | 'الثاني'; // Moved to BaseReport
   visitType: VisitType;
   class: ClassNumber;
   section: Section;
@@ -138,17 +129,15 @@ export interface ClassSessionEvaluationReport extends BaseReport {
   notesForImprovement: string;
   recommendations: string;
   employeeComment: string;
-  // Added fields
   strategies: string;
   tools: string;
   sources: string;
   programs: string;
 }
 
-// Special, user-defined report
 export interface SpecialReport extends BaseReport {
     evaluationType: 'special';
-    templateId: string; // Links to the SpecialReportTemplate
+    templateId: string; 
     templateName: string;
     criteria: GeneralCriterion[];
 }
@@ -162,14 +151,10 @@ export interface CustomCriterion {
   school: string;
   evaluationType: 'general' | 'class_session';
   subType?: 'brief' | 'extended' | 'subject_specific';
-  groupTitle?: string; // For class session criteria
+  groupTitle?: string; 
   criterion: Omit<GeneralCriterion | ClassSessionCriterion, 'score'>;
-  // --- New field for teacher-specific criteria ---
-  teacherIds?: string[]; // Empty or null means general for all
+  teacherIds?: string[]; 
 }
-
-
-// --- New Feature Types ---
 
 export type SpecialReportPlacement = 'teacher_reports' | 'main' | 'aggregated_reports' | 'performance_dashboard' | 'other';
 
@@ -181,7 +166,6 @@ export interface SpecialReportTemplate {
     placement: SpecialReportPlacement[];
 }
 
-// This replaces the old Syllabus type
 export interface SyllabusLesson {
     id: string;
     title: string;
@@ -198,7 +182,6 @@ export interface SyllabusPlan {
     academicYear?: string;
 }
 
-// --- New: Syllabus Coverage Report Types ---
 export interface SyllabusBranchProgress {
   branchName: string;
   status: 'ahead' | 'on_track' | 'behind' | 'not_set';
@@ -219,24 +202,19 @@ export interface SyllabusCoverageReport {
   teacherId: string;
   branch: 'main' | 'boys' | 'girls';
   date: string;
-  
-  // --- Enhanced Fields ---
-  meetingsAttended?: string; // Number of meetings
-  notebookCorrection?: string; // Percentage 1-100
-  preparationBook?: string; // Percentage 1-100
-  questionsGlossary?: string; // Percentage 1-100
-  
-  programsImplemented?: string; // Text
-  strategiesImplemented?: string; // Text
-  toolsUsed?: string; // Text
-  sourcesUsed?: string; // Text
-  tasksDone?: string; // التكاليف - Text
-  testsDelivered?: string; // Text
-  peerVisitsDone?: string; // Text
+  meetingsAttended?: string; 
+  notebookCorrection?: string; 
+  preparationBook?: string; 
+  questionsGlossary?: string; 
+  programsImplemented?: string; 
+  strategiesImplemented?: string; 
+  toolsUsed?: string; 
+  sourcesUsed?: string; 
+  tasksDone?: string; 
+  testsDelivered?: string; 
+  peerVisitsDone?: string; 
 }
 
-
-// --- Task Plan Types ---
 export interface Task {
     id: string;
     description: string;
@@ -249,9 +227,9 @@ export interface Task {
     isOffPlan?: boolean; 
     authorId?: string;
     academicYear?: string;
+    schoolName?: string; // مضافة للعزل
 }
 
-// --- Supervisory Tools Types ---
 export interface SchoolCalendarEvent {
     id: string;
     fromDay: string;
@@ -261,12 +239,12 @@ export interface SchoolCalendarEvent {
     program: string;
     deliveryDate: string;
     notes: string;
-    // For future file uploads
     attachment?: {
       name: string;
       type: string;
-      content: string; // base64 content
+      content: string; 
     };
+    schoolName?: string; // مضافة للعزل
 }
 
 export interface MeetingOutcome {
@@ -289,6 +267,7 @@ export interface Meeting {
     signatures: { [attendeeName: string]: string };
     authorId?: string;
     academicYear?: string;
+    schoolName?: string; // مضافة للعزل
 }
 
 export interface PeerVisit {
@@ -303,6 +282,7 @@ export interface PeerVisit {
     status?: 'تمت الزيارة' | 'قيد التنفيذ' | 'لم تتم';
     authorId?: string;
     academicYear?: string;
+    schoolName?: string; // مضافة للعزل
 }
 
 export interface DeliveryRecord {
@@ -323,40 +303,34 @@ export interface DeliverySheet {
     records: DeliveryRecord[];
     authorId?: string;
     academicYear?: string;
+    schoolName?: string; // مضافة للعزل
 }
 
-// --- Bulk Message Type ---
 export interface BulkMessage {
     id: string;
     text: string;
     date: string;
     recipientType: 'all' | 'specific';
-    recipients: string[]; // teacher names
+    recipients: string[]; 
     authorId?: string;
     academicYear?: string;
+    schoolName?: string; // مضافة للعزل
 }
 
-// --- NEW: Supervisory Plan Types (Updated Structure) ---
 export interface SupervisoryPlanEntry {
     id: string;
     domain: string;
     objective: string;
-    // Nested indicator
     indicatorText?: string;
     indicatorCount?: number | string;
     evidence?: string;
-    // Nested activity
     activityText?: string;
     activityPlanned?: number | string;
-
-    isGroupHeader?: boolean; // To mark domain rows
-    isSummaryRow?: boolean; // To mark summary rows
-    
-    // For simpler rows that don't fit the nested structure
+    isGroupHeader?: boolean; 
+    isSummaryRow?: boolean; 
     indicator?: string; 
     activity?: string;
-    totalPlanned?: number | string; // For summary rows or simpler rows
-
+    totalPlanned?: number | string; 
     monthlyPlanned: {
         dhu_al_hijjah: number | string;
         muharram: number | string;
@@ -367,18 +341,7 @@ export interface SupervisoryPlanEntry {
         jumada_al_thani: number | string;
         rajab: number | string;
         shaban: number | string;
-        // Adding other months from user's table as placeholders if needed
-        month_6?: number | string;
-        month_7?: number | string;
-        month_8?: number | string;
-        month_9?: number | string;
-        month_10?: number | string;
-        month_11?: number | string;
-        month_12?: number | string;
-        month_1?: number | string;
-        month_2?: number | string;
     };
-    
     executed: number | string;
     cost: number | string;
     reasonsForNonExecution: string;
@@ -388,7 +351,6 @@ export interface SupervisoryPlanEntry {
 
 export type SupervisoryPlan = SupervisoryPlanEntry[];
 
-// --- New Table Structures for Supervisory Plan ---
 export interface OffPlanItem {
     id: string;
     domain: string;
@@ -431,11 +393,10 @@ export interface SupervisoryPlanWrapper {
   };
   planData: SupervisoryPlan;
   isCollapsed: boolean;
-  // Updated fields
   offPlanItems: OffPlanItem[]; 
   strengthItems: StrengthItem[];
   problemItems: ProblemItem[];
   recommendationItems: RecommendationItem[];
-  // Deprecated but kept for migration if needed
   offPlanActivities?: string[]; 
+  schoolName?: string; // مضافة للعزل
 }
