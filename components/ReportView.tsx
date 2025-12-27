@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Teacher, Report, EvaluationType, GeneralEvaluationReport, ClassSessionEvaluationReport, CustomCriterion, GeneralCriterion, SpecialReportTemplate, SpecialReport, SyllabusPlan, ClassSessionCriterionGroup } from '../types';
 import { useLanguage } from '../i18n/LanguageContext';
@@ -19,7 +20,6 @@ interface ReportViewProps {
   updateTeacher: (teacher: Teacher) => void;
   saveCustomCriterion: (criterion: CustomCriterion) => void;
   hiddenCriteria: { [teacherIdOrAll: string]: string[] };
-  // --- New global props ---
   supervisorName: string;
   semester: 'الأول' | 'الثاني';
   academicYear: string;
@@ -43,26 +43,26 @@ const ReportView: React.FC<ReportViewProps> = ({ teacher, reports, customCriteri
   }, [initiallyOpenReportId, reports]);
 
   const handleNewReport = (type: EvaluationType, template?: SpecialReportTemplate) => {
-    // Find the most recent report of the same type for this teacher to pre-fill data
     const latestReportOfSameType = [...reports]
         .filter(r => r.evaluationType === type)
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
 
-    // Fallback to any latest report if no report of the same type is found
     const latestReportOverall = [...reports]
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
     
     const latestReport = latestReportOfSameType || latestReportOverall;
 
+    // معرف فريد فائق الدقة يجمع بين التاريخ، معرف المعلم، ونوع التقرير ورقم عشوائي
+    const uniqueId = `report-${teacher.id}-${type}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+
     const baseReport = {
-      id: `report-${Date.now()}`,
+      id: uniqueId,
       teacherId: teacher.id,
       date: new Date().toISOString().split('T')[0],
       school: teacher.schoolName,
       subject: latestReport?.subject || teacher.subjects?.split(',')[0] || '',
       grades: latestReport?.grades || teacher.gradesTaught?.split(',')[0] || '',
       branch: teacher.branch || 'main',
-      // Add global settings
       supervisorName: supervisorName,
       semester: semester,
       academicYear: academicYear,
@@ -74,7 +74,6 @@ const ReportView: React.FC<ReportViewProps> = ({ teacher, reports, customCriteri
     ]);
 
     if (type === 'general') {
-        // Filter criteria specific to this teacher or general for all
         const applicableCustomCriteria = customCriteria.filter(c => 
             c.school === baseReport.school && 
             c.evaluationType === 'general' &&
@@ -103,12 +102,12 @@ const ReportView: React.FC<ReportViewProps> = ({ teacher, reports, customCriteri
         const latestClassReport = latestReport as ClassSessionEvaluationReport | undefined;
         
         const filterTemplate = (template: ClassSessionCriterionGroup[]): ClassSessionCriterionGroup[] => {
-            return JSON.parse(JSON.stringify(template)) // deep copy
+            return JSON.parse(JSON.stringify(template))
                 .map((group: ClassSessionCriterionGroup) => {
                     group.criteria = group.criteria.filter(c => !allHiddenIds.has(c.id));
                     return group;
                 })
-                .filter((group: ClassSessionCriterionGroup) => group.criteria.length > 0); // Remove empty groups
+                .filter((group: ClassSessionCriterionGroup) => group.criteria.length > 0);
         };
         
         const newReport: ClassSessionEvaluationReport = {
@@ -155,7 +154,6 @@ const ReportView: React.FC<ReportViewProps> = ({ teacher, reports, customCriteri
   }
 
   const handleSaveReport = (report: Report) => {
-    // Persist teacher info is now handled in the TeacherList modal
     saveReport(report);
     cancelEdit();
   };

@@ -32,6 +32,23 @@ const AppContent: React.FC = () => {
   const [supervisoryPlans, setSupervisoryPlans] = useLocalStorage<SupervisoryPlanWrapper[]>('supervisoryPlans', INITIAL_SUPERVISORY_PLANS);
   const [hiddenCriteria, setHiddenCriteria] = useLocalStorage<{ [teacherIdOrAll: string]: string[] }>('hiddenCriteria', {});
 
+  // محرك التنظيف الذاتي: يمنع تكرار البيانات ويحذف السجلات غير الصالحة
+  useEffect(() => {
+    const deduplicate = <T extends { id: string }>(data: T[]): T[] => {
+      const seen = new Set();
+      return data.filter(item => {
+        if (!item.id || seen.has(item.id)) return false;
+        seen.add(item.id);
+        return true;
+      });
+    };
+
+    setReports(prev => deduplicate(prev));
+    setTasks(prev => deduplicate(prev));
+    setMeetings(prev => deduplicate(prev));
+    setTeachers(prev => deduplicate(prev));
+  }, []);
+
   useEffect(() => {
     const themeConfig = THEMES[theme as keyof typeof THEMES] || THEMES.default;
     const themeColors = themeConfig.colors;
@@ -47,7 +64,7 @@ const AppContent: React.FC = () => {
 
   const addTeacher = (teacherData: Omit<Teacher, 'id' | 'schoolName'>, schoolName: string) => {
     const newTeacher: Teacher = {
-      id: `teacher-${Date.now()}`,
+      id: `teacher-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
       schoolName,
       name: teacherData.name,
       ...teacherData
@@ -64,24 +81,28 @@ const AppContent: React.FC = () => {
     setReports(prev => prev.filter(r => r.teacherId !== teacherId));
   };
   
-  const saveData = <T extends { authorId?: string, academicYear?: string, schoolName?: string, school?: string }>(
+  // دالة الحفظ المحصنة: تمنع تكرار السجلات عبر فحص المعرف بدقة قبل أي عملية دفع
+  const saveData = <T extends { id: string, authorId?: string, academicYear?: string, schoolName?: string, school?: string }>(
     setter: React.Dispatch<React.SetStateAction<T[]>>,
-    data: T & { id: string }
+    data: T
   ) => {
-      const dataToSave = {
-          ...data,
-          authorId: currentUser?.id,
-          academicYear: academicYear,
-          schoolName: selectedSchool || data.schoolName,
-          school: selectedSchool || data.school,
-      };
       setter(prev => {
-          const existingIndex = prev.findIndex(item => (item as any).id === dataToSave.id);
+          const dataToSave = {
+              ...data,
+              authorId: data.authorId || currentUser?.id,
+              academicYear: data.academicYear || academicYear,
+              schoolName: selectedSchool || data.schoolName,
+              school: selectedSchool || data.school,
+          };
+          
+          const existingIndex = prev.findIndex(item => item.id === dataToSave.id);
           if (existingIndex > -1) {
+              // تحديث السجل الحالي بدلاً من إضافة جديد
               const updated = [...prev];
               updated[existingIndex] = dataToSave;
               return updated;
           }
+          // إضافة سجل جديد فقط إذا لم يكن موجوداً
           return [...prev, dataToSave];
       });
   };
@@ -122,7 +143,6 @@ const AppContent: React.FC = () => {
     setSyllabusPlans(prev => prev.filter(s => s.id !== syllabusId));
   };
 
-  // محرك الفلترة الذكي لاستعادة البيانات القديمة
   const userFilteredData = useMemo(() => {
     if (!currentUser || !selectedSchool) {
         return {
@@ -135,15 +155,12 @@ const AppContent: React.FC = () => {
     const isMainAdmin = hasPermission('all');
     const firstSchoolName = schools[0]?.name || 'مدارس الرائد النموذجية';
     
-    // دالة مساعدة لتحديد ما إذا كان السجل ينتمي للمدرسة المختارة (مع دعم البيانات القديمة)
     const isItemInSelectedSchool = (item: any) => {
         const itemSchool = item.schoolName || item.school;
-        // إذا لم يكن هناك مدرسة مسجلة، نعتبرها تابعة للمدرسة الأولى (الرائد)
         if (!itemSchool) return selectedSchool === firstSchoolName;
         return itemSchool === selectedSchool;
     };
 
-    // 1. فلترة المعلمين
     const allTeachersInSchool = teachers.filter(isItemInSelectedSchool);
     
     let visibleTeachers: Teacher[] = [];
@@ -156,21 +173,17 @@ const AppContent: React.FC = () => {
     }
     const visibleTeacherIds = new Set(visibleTeachers.map(t => t.id));
 
-    // 2. فلترة التقارير
     const visibleReports = reports.filter(r => isItemInSelectedSchool(r) && visibleTeacherIds.has(r.teacherId));
     
-    // 3. فلترة البيانات العامة للمدرسة
     const schoolFilter = <T extends { schoolName?: string, school?: string }>(data: T[]) => {
         return data.filter(isItemInSelectedSchool);
     };
 
-    // 4. فلترة البيانات المرتبطة بالمؤلف + المدرسة
     const authorAndSchoolFilter = <T extends { authorId?: string, schoolName?: string, school?: string }>(data: T[]) => {
         const inSchool = data.filter(isItemInSelectedSchool);
         return isMainAdmin ? inSchool : inSchool.filter(d => d.authorId === currentUser.id);
     };
 
-    // 5. فلترة المستخدمين
     const usersInSchool = users.filter(u => !u.schoolName || u.schoolName === selectedSchool);
 
     return {
