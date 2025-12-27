@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Teacher, Report, EvaluationType, GeneralEvaluationReport, ClassSessionEvaluationReport, CustomCriterion, GeneralCriterion, SpecialReportTemplate, SpecialReport, SyllabusPlan, ClassSessionCriterionGroup } from '../types';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -32,27 +32,32 @@ const ReportView: React.FC<ReportViewProps> = ({ teacher, reports, customCriteri
   const [editingReport, setEditingReport] = useState<Report | null>(null);
   const [isCreatingNew, setIsCreatingNew] = useState(false);
 
+  // منطق الفلترة الجوهري: استخراج تقارير هذا المعلم فقط
+  const teacherSpecificReports = useMemo(() => {
+    return reports.filter(r => r.teacherId === teacher.id);
+  }, [reports, teacher.id]);
+
   useEffect(() => {
     if (initiallyOpenReportId) {
-        const reportToOpen = reports.find(r => r.id === initiallyOpenReportId);
+        const reportToOpen = teacherSpecificReports.find(r => r.id === initiallyOpenReportId);
         if (reportToOpen) {
             setEditingReport(reportToOpen);
             setIsCreatingNew(false);
         }
     }
-  }, [initiallyOpenReportId, reports]);
+  }, [initiallyOpenReportId, teacherSpecificReports]);
 
   const handleNewReport = (type: EvaluationType, template?: SpecialReportTemplate) => {
-    const latestReportOfSameType = [...reports]
+    const latestReportOfSameType = [...teacherSpecificReports]
         .filter(r => r.evaluationType === type)
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
 
-    const latestReportOverall = [...reports]
+    const latestReportOverall = [...teacherSpecificReports]
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
     
     const latestReport = latestReportOfSameType || latestReportOverall;
 
-    // معرف فريد فائق الدقة يجمع بين التاريخ، معرف المعلم، ونوع التقرير ورقم عشوائي
+    // معرف فريد فائق الدقة يجمع بين معرف المعلم والوقت لضمان عدم التكرار
     const uniqueId = `report-${teacher.id}-${type}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
 
     const baseReport = {
@@ -195,8 +200,8 @@ const ReportView: React.FC<ReportViewProps> = ({ teacher, reports, customCriteri
       </div>
 
       <div className="space-y-4">
-        {reports.length > 0 ? (
-          [...reports].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(report => {
+        {teacherSpecificReports.length > 0 ? (
+          [...teacherSpecificReports].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(report => {
             let reportTitle = '';
             if (report.evaluationType === 'general') {
                 reportTitle = t('generalEvaluation');
