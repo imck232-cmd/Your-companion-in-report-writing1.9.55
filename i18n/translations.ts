@@ -279,9 +279,7 @@ export const translations = {
     notebookCorrection: "تصحيح الدفاتر",
     preparationBook: "دفتر التحضير",
     questionsGlossary: "مسرد الأسئلة نهاية دفتر التحضير",
-    // FIX: Removed duplicated properties tasksDone, testsDelivered, etc. later in the file as identified by the error list.
     tasksDone: "التكاليف التي تم القيام بها",
-    // FIX: Corrected typo 'الاخبارات' to 'الاختبارات'.
     testsDelivered: "الاختبارات التي تم تسليمها",
     peerVisitsDone: "الزيارات التبادلية التي تمت",
     importExcel: "استيراد",
@@ -327,7 +325,6 @@ export const translations = {
     from_date: "من تاريخ",
     to_date: "إلى تاريخ",
     calculate: "احتساب",
-    // FIX: Updated translations to match the style found later in the duplicate block for better clarity.
     strategiesUsed: "الاستراتيجيات التي تم تنفيذها",
     toolsUsed: "الوسائل التي تم استخدامها",
     sourcesUsed: "المصادر التي تم استخدامها",
@@ -392,6 +389,7 @@ export const translations = {
     sortAll: "الجميع",
     sort_date: "تاريخ الزيارة",
     sort_name: "الاسم أبجدياً",
+    sort_visit_count: "عدد الزيارات",
     sort_subject: "المادة",
     sort_grade: "الصف",
     sort_percentage: "نسبة التقييم",
@@ -400,7 +398,6 @@ export const translations = {
     viewReport: "عرض التقرير",
     bookmark: "علامة مرجعية",
     semesterAll: "الأول والثاني",
-    // FIX: Kept programsUsed and removed subsequent duplicates as identified by error report.
     programsUsed: "البرامج والمهارات المنفذة",
   },
   en: {
@@ -682,7 +679,6 @@ export const translations = {
     notebookCorrection: "Notebook Correction",
     preparationBook: "Preparation Book",
     questionsGlossary: "Questions Glossary",
-    // FIX: Removed duplicated properties tasksDone, testsDelivered, etc. later in the file as identified by the error report.
     tasksDone: "Tasks Completed",
     testsDelivered: "Tests Delivered",
     peerVisitsDone: "Peer Visits Conducted",
@@ -793,6 +789,7 @@ export const translations = {
     sortAll: "All",
     sort_date: "Visit Date",
     sort_name: "Name A-Z",
+    sort_visit_count: "Visit Count",
     sort_subject: "Subject",
     sort_grade: "Grade",
     sort_percentage: "Score %",
@@ -801,7 +798,6 @@ export const translations = {
     viewReport: "View Report",
     bookmark: "Bookmark",
     semesterAll: "Both Semesters",
-    // FIX: Kept programsUsed and removed subsequent duplicates as identified by error report.
     programsUsed: "Implemented Programs",
   }
 };
