@@ -37,7 +37,7 @@ export interface User {
   code: string;
   permissions: Permission[];
   managedTeacherIds?: string[];
-  schoolName?: string; // مضافة للعزل
+  schoolName?: string;
 }
 
 export interface School {
@@ -202,17 +202,18 @@ export interface SyllabusCoverageReport {
   teacherId: string;
   branch: 'main' | 'boys' | 'girls';
   date: string;
-  meetingsAttended?: string; 
-  notebookCorrection?: string; 
-  preparationBook?: string; 
-  questionsGlossary?: string; 
-  programsImplemented?: string; 
-  strategiesImplemented?: string; 
-  toolsUsed?: string; 
-  sourcesUsed?: string; 
-  tasksDone?: string; 
-  testsDelivered?: string; 
-  peerVisitsDone?: string; 
+  // الحقول الجديدة المطلوبة
+  meetingsAttended?: string;
+  notebookCorrection?: string;
+  preparationBook?: string;
+  questionsGlossary?: string;
+  programsImplemented?: string;
+  strategiesImplemented?: string;
+  toolsUsed?: string;
+  sourcesUsed?: string;
+  tasksDone?: string;
+  testsDelivered?: string;
+  peerVisitsDone?: string;
 }
 
 export interface Task {
@@ -227,7 +228,7 @@ export interface Task {
     isOffPlan?: boolean; 
     authorId?: string;
     academicYear?: string;
-    schoolName?: string; // مضافة للعزل
+    schoolName?: string;
 }
 
 export interface SchoolCalendarEvent {
@@ -244,7 +245,7 @@ export interface SchoolCalendarEvent {
       type: string;
       content: string; 
     };
-    schoolName?: string; // مضافة للعزل
+    schoolName?: string;
 }
 
 export interface MeetingOutcome {
@@ -267,7 +268,7 @@ export interface Meeting {
     signatures: { [attendeeName: string]: string };
     authorId?: string;
     academicYear?: string;
-    schoolName?: string; // مضافة للعزل
+    schoolName?: string;
 }
 
 export interface PeerVisit {
@@ -282,7 +283,7 @@ export interface PeerVisit {
     status?: 'تمت الزيارة' | 'قيد التنفيذ' | 'لم تتم';
     authorId?: string;
     academicYear?: string;
-    schoolName?: string; // مضافة للعزل
+    schoolName?: string;
 }
 
 export interface DeliveryRecord {
@@ -303,7 +304,7 @@ export interface DeliverySheet {
     records: DeliveryRecord[];
     authorId?: string;
     academicYear?: string;
-    schoolName?: string; // مضافة للعزل
+    schoolName?: string;
 }
 
 export interface BulkMessage {
@@ -314,7 +315,7 @@ export interface BulkMessage {
     recipients: string[]; 
     authorId?: string;
     academicYear?: string;
-    schoolName?: string; // مضافة للعزل
+    schoolName?: string;
 }
 
 export interface SupervisoryPlanEntry {
@@ -398,5 +399,5 @@ export interface SupervisoryPlanWrapper {
   problemItems: ProblemItem[];
   recommendationItems: RecommendationItem[];
   offPlanActivities?: string[]; 
-  schoolName?: string; // مضافة للعزل
+  schoolName?: string;
 }

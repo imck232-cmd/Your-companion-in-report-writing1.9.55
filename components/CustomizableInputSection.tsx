@@ -9,7 +9,7 @@ interface CustomizableInputSectionProps {
   onChange: (value: string) => void;
   defaultItems: string[];
   localStorageKey: string;
-  isList?: boolean; // New prop to enable list mode
+  isList?: boolean; 
 }
 
 const CustomizableInputSection: React.FC<CustomizableInputSectionProps> = ({
@@ -25,38 +25,32 @@ const CustomizableInputSection: React.FC<CustomizableInputSectionProps> = ({
 
   const allItems = [...new Set([...defaultItems, ...customItems])];
   
-  // Logic to parse currently selected items from the text area
   const selectedItems = useMemo(() => {
       if (!value) return [];
-      if (isList) {
-          // Split by newline, remove empty lines, remove '- ' prefix
-          return value.split('\n')
-              .map(line => line.trim())
-              .filter(line => line.startsWith('- '))
-              .map(line => line.substring(2));
-      } else {
-          return value.split(/[,،]\s*/).filter(Boolean);
-      }
-  }, [value, isList]);
+      // تنظيف النص لمعرفة العناصر المختارة
+      return allItems.filter(item => value.includes(item));
+  }, [value, allItems]);
 
   const handleItemToggle = (item: string) => {
-    const isSelected = selectedItems.includes(item);
+    let currentArray = isList 
+        ? value.split('\n').map(l => l.replace(/^- /, '').trim()).filter(Boolean)
+        : value.split(/[,،]\s*/).filter(Boolean);
+
+    const isSelected = currentArray.includes(item);
     let newArray;
     
     if (isSelected) {
-      newArray = selectedItems.filter(i => i !== item);
+      newArray = currentArray.filter(i => i !== item);
     } else {
-      newArray = [...selectedItems, item];
+      newArray = [...currentArray, item];
     }
     
     if (isList) {
-        // Join with newlines and prefix with '- '
         onChange(newArray.map(i => `- ${i}`).join('\n'));
     } else {
-        onChange(newArray.join('، '));
+        onChange(newArray.join(' ، '));
     }
   };
-
 
   const handleAddNewCustomItem = () => {
     const newItem = window.prompt(t('addNewItem'));
@@ -66,16 +60,19 @@ const CustomizableInputSection: React.FC<CustomizableInputSectionProps> = ({
   };
 
   return (
-    <div>
-      <label className="block font-semibold mb-2 text-primary">{title}</label>
-      <div className="flex flex-wrap gap-2 mb-2">
+    <div className="space-y-3">
+      <div className="flex justify-between items-center bg-primary/5 p-2 rounded-lg">
+        <label className="block font-bold text-primary text-sm">{title}</label>
         <button
           type="button"
           onClick={handleAddNewCustomItem}
-          className="px-3 py-1 bg-sky-100 text-sky-700 rounded-full hover:bg-sky-200 text-sm transition font-semibold"
+          className="px-3 py-1 bg-white text-primary border border-primary/20 rounded-full text-[10px] font-bold shadow-sm hover:bg-primary hover:text-white transition-all"
         >
-          + {t('addNewItem')}
+          + إضافة عنصر جديد
         </button>
+      </div>
+      
+      <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-1 scrollbar-hide">
         {allItems.map(item => {
           const isSelected = selectedItems.includes(item);
           return (
@@ -83,10 +80,10 @@ const CustomizableInputSection: React.FC<CustomizableInputSectionProps> = ({
               key={item}
               type="button"
               onClick={() => handleItemToggle(item)}
-              className={`px-3 py-1 rounded-full text-sm transition ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shadow-sm ${
                 isSelected 
-                  ? 'bg-sky-200 text-sky-800 font-semibold' 
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  ? 'bg-primary text-white scale-105 ring-2 ring-primary/20' 
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
               {item}
@@ -94,10 +91,12 @@ const CustomizableInputSection: React.FC<CustomizableInputSectionProps> = ({
           )
         })}
       </div>
+      
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full p-2 border rounded h-32 focus:ring-primary focus:border-primary transition bg-inherit"
+        className="w-full p-3 border-2 border-gray-100 rounded-xl h-24 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm leading-relaxed"
+        placeholder={`اكتب هنا أو اختر من الأعلى...`}
       />
     </div>
   );

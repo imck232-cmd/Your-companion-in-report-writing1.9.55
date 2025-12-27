@@ -24,33 +24,17 @@ const ImportDataSection: React.FC<ImportDataSectionProps> = ({ onDataParsed, for
 
         const reader = new FileReader();
         if (file.name.endsWith('.txt')) {
-            reader.onload = (event) => {
-                setText(event.target?.result as string);
-            };
+            reader.onload = (event) => setText(event.target?.result as string);
             reader.readAsText(file);
         } else if (file.name.endsWith('.xlsx')) {
             reader.onload = (event) => {
                 const data = new Uint8Array(event.target?.result as ArrayBuffer);
                 const workbook = XLSX.read(data, { type: 'array' });
-                const firstSheetName = workbook.SheetNames[0];
-                const worksheet = workbook.Sheets[firstSheetName];
-                const csvText = XLSX.utils.sheet_to_csv(worksheet);
-                setText(csvText);
+                const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                setText(XLSX.utils.sheet_to_csv(worksheet));
             };
             reader.readAsArrayBuffer(file);
-        } else {
-            alert('نوع الملف غير مدعوم. يرجى رفع ملف .txt أو .xlsx');
         }
-    };
-
-    const cleanJsonString = (str: string) => {
-        let cleaned = str.replace(/```json/gi, '').replace(/```/g, '');
-        const firstBrace = cleaned.indexOf('{');
-        const lastBrace = cleaned.lastIndexOf('}');
-        if (firstBrace !== -1 && lastBrace !== -1) {
-            cleaned = cleaned.substring(firstBrace, lastBrace + 1);
-        }
-        return cleaned.trim();
     };
 
     const handleFillFields = async () => {
@@ -61,97 +45,64 @@ const ImportDataSection: React.FC<ImportDataSectionProps> = ({ onDataParsed, for
         try {
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
             const prompt = `
-                You are a world-class Arabic text parser for educational reports.
+                Extract structured data from this Arabic educational report text.
+                Format the output as valid JSON matching this schema: ${JSON.stringify(formStructure)}.
                 
-                **TARGET:**
-                Extract data from the source text and map it to this JSON structure:
-                ${JSON.stringify(formStructure, null, 2)}
-
-                **MAPPING RULES (MANDATORY):**
-                1. Date (*📅 التاريخ:*): Normalize "16‏/12‏/2025" or similar to ISO "YYYY-MM-DD".
-                2. Status Mapping (الحالة):
+                Rules:
+                1. Date: Convert "14‏/12‏/2025" to "2025-12-14".
+                2. Status Mapping: 
                    - "مطابق لخطة الوزارة" -> "on_track"
                    - "متقدم عن خطة الوزارة" -> "ahead"
                    - "متأخر عن خطة الوزارة" -> "behind"
-                   - any variation of "--" or "لم يحدد" or empty -> "not_set"
-                3. Lesson Difference: If "متقدم بـ 3" extract "3".
-                4. Percentages: Extract ONLY the number. "100%" becomes "100", "85 %" becomes "85".
-                5. Lists (*💻 البرامج*, *💡 الاستراتيجيات*, etc): 
-                   - Extract all items found under the header.
-                   - Return as a single string where items are separated by newlines ("\\n"), each starting with "- ".
-                6. Branches (*📌 فرع:*): 
-                   - Extract EACH branch separately into the 'branches' array.
-                   - 'branchName' is the text after "فرع:".
-                   - 'lastLesson' is the text after "*✍️ آخر درس:*".
+                3. Lesson Difference: Extract numbers (e.g., "بعدد 3 دروس" -> "3").
+                4. For quantitative stats (e.g. 95%), extract only the number (95).
+                5. For qualitative fields (Strategies, Programs, etc), extract text as a newline-separated string.
+                6. Branches: Identify sections starting with "📌 فرع:".
 
-                **SOURCE TEXT:**
-                ---
+                Text:
                 ${text}
-                ---
-
-                **OUTPUT:** Return ONLY a valid JSON object. No explanations.
             `;
             
             const response: GenerateContentResponse = await ai.models.generateContent({
                 model: 'gemini-3-flash-preview',
                 contents: prompt,
-                config: { temperature: 0.1 }
+                config: { responseMimeType: "application/json" }
             });
 
-            const rawText = response.text || '';
-            const cleanedJson = cleanJsonString(rawText);
-            
-            try {
-                const parsedData = JSON.parse(cleanedJson);
-                onDataParsed(parsedData);
-            } catch (jsonErr) {
-                console.error("JSON Parse Error:", cleanedJson);
-                throw new Error("Failed to parse AI output.");
-            }
-            
+            const parsedData = JSON.parse(response.text || '{}');
+            onDataParsed(parsedData);
+            setText('');
         } catch (err) {
             console.error(err);
-            setError(t('importError'));
+            setError("فشل استخراج البيانات. تأكد من جودة النص المحمل.");
         } finally {
             setIsLoading(false);
         }
     };
 
     return (
-        <div className="mt-4 p-4 border-t-2 border-indigo-200 bg-indigo-50 rounded-b-lg space-y-3">
-            <h4 className="font-semibold text-indigo-800">{t('pasteOrUpload')}</h4>
+        <div className="mt-4 p-4 border-2 border-indigo-200 bg-indigo-50/30 rounded-xl space-y-3">
+            <h4 className="font-bold text-indigo-800 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clipRule="evenodd" /></svg>
+                تعبئة ذكية من نص أو ملف
+            </h4>
             <textarea
                 value={text}
                 onChange={(e) => setText(e.target.value)}
-                className="w-full p-2 border rounded-md h-32 focus:ring-2 focus:ring-indigo-400 text-base font-mono"
-                placeholder="ألصق النص هنا..."
+                className="w-full p-3 border rounded-lg h-32 focus:ring-2 focus:ring-indigo-400 text-sm"
+                placeholder="ألصق نص التقرير هنا..."
             />
-            <div className="flex items-center gap-4">
-                <input
-                    type="file"
-                    accept=".txt,.xlsx"
-                    onChange={handleFileChange}
-                    className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"
-                />
+            <div className="flex flex-col sm:flex-row gap-3">
+                <input type="file" accept=".txt,.xlsx" onChange={handleFileChange} className="text-xs file:bg-indigo-100 file:border-0 file:rounded-lg file:px-3 file:py-2" />
+                <button
+                    onClick={handleFillFields}
+                    disabled={isLoading}
+                    className="flex-grow py-2 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 disabled:bg-gray-400 shadow-md transition-all"
+                >
+                    {isLoading ? "جاري المعالجة..." : (customButtonLabel || "بدء الاستخراج الذكي")}
+                </button>
             </div>
-            <button
-                onClick={handleFillFields}
-                disabled={isLoading}
-                className="w-full px-6 py-3 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 disabled:bg-indigo-400 transition-colors shadow-md flex justify-center items-center gap-2"
-            >
-                {isLoading ? (
-                    <>
-                        <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        <span>{t('processingImport')}</span>
-                    </>
-                ) : (
-                    <span>{customButtonLabel || t('fillFields')}</span>
-                )}
-            </button>
-            {error && <p className="text-red-600 text-center font-bold bg-red-100 p-2 rounded">{error}</p>}
+            {error && <p className="text-red-600 text-center text-xs font-bold">{error}</p>}
         </div>
     );
 };
