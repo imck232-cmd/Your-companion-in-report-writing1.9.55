@@ -140,7 +140,6 @@ const ReportEditor: React.FC<{
     const [otherGrade, setOtherGrade] = useState(GRADES.includes(report.grade) ? '' : report.grade);
     const [isSaving, setIsSaving] = useState(false);
     const [showAIImport, setShowAIImport] = useState(false);
-    const fileInputRef = useRef<HTMLInputElement>(null);
     
     const teacherMap = useMemo(() => new Map(allTeachers.map(t => [t.id, t.name])), [allTeachers]);
 
@@ -210,43 +209,76 @@ const ReportEditor: React.FC<{
         setTimeout(() => setIsSaving(false), 1500);
     };
 
-    const handleDataParsed = (data: any) => {
-        const { id, teacherId, ...otherData } = data;
-        let resolvedTeacherId = report.teacherId;
-        
-        if (!report.teacherId && teacherId) {
-            const found = allTeachers.find(t => t.name.includes(String(teacherId).trim()) || String(teacherId).includes(t.name));
-            if (found) resolvedTeacherId = found.id;
+    // المحرك المطور لمعالجة بيانات AI وتجنب الانهيار
+    const handleDataParsed = (parsedData: any) => {
+        if (!parsedData || typeof parsedData !== 'object') return;
+
+        const updatedReport = { ...report };
+
+        // 1. معالجة اسم المعلم لمطابقة الـ ID
+        if (parsedData.teacherId) {
+            const found = allTeachers.find(t => 
+                t.name.trim().includes(String(parsedData.teacherId).trim()) || 
+                String(parsedData.teacherId).trim().includes(t.name.trim())
+            );
+            if (found) updatedReport.teacherId = found.id;
         }
 
-        onUpdate({ ...report, ...otherData, id: report.id, teacherId: resolvedTeacherId });
+        // 2. تحديث الحقول النصية البسيطة بأمان
+        const simpleFields: (keyof SyllabusCoverageReport)[] = [
+            'schoolName', 'academicYear', 'semester', 'subject', 'grade', 'date',
+            'meetingsAttended', 'notebookCorrection', 'preparationBook', 'questionsGlossary',
+            'programsImplemented', 'strategiesImplemented', 'toolsUsed', 'sourcesUsed',
+            'tasksDone', 'testsDelivered', 'peerVisitsDone'
+        ];
+
+        simpleFields.forEach(field => {
+            if (parsedData[field] !== undefined) {
+                (updatedReport as any)[field] = parsedData[field];
+            }
+        });
+
+        // 3. معالجة الفروع بأمان (Smart Merge)
+        if (parsedData.branches && Array.isArray(parsedData.branches)) {
+            const newBranches: SyllabusBranchProgress[] = parsedData.branches.map((b: any) => ({
+                branchName: b.branchName || 'فرع جديد',
+                status: b.status || 'not_set',
+                lastLesson: b.lastLesson || '',
+                lessonDifference: b.lessonDifference || '',
+                percentage: b.status === 'on_track' || b.status === 'ahead' ? 100 : 0
+            }));
+            updatedReport.branches = newBranches;
+        }
+
+        onUpdate(updatedReport);
         setShowAIImport(false);
     };
 
     const formStructureForAI = {
-        schoolName: "extract from: *🏫 المدرسة:*",
-        academicYear: "extract from: *🎓 العام الدراسي:*",
-        semester: "extract from: *الفصل:*",
-        subject: "extract from: *📖 المادة:*",
-        grade: "extract from: *الصف:*",
-        teacherId: "extract from: *👨‍🏫 المعلم:*",
-        date: "extract from: *📅 التاريخ:*",
+        schoolName: "String (🏫 المدرسة)",
+        academicYear: "String (🎓 العام الدراسي)",
+        semester: "String (الأول / الثاني)",
+        subject: "String (📖 المادة)",
+        grade: "String (الصف)",
+        teacherId: "String (👨‍🏫 المعلم)",
+        date: "String (YYYY-MM-DD)",
         branches: [{ 
-            branchName: "from *📌 فرع:*", 
-            status: "from *الحالة:* (map 'مطابق' to 'on_track', 'متقدم' to 'ahead', 'متأخر' to 'behind')", 
-            lastLesson: "from *✍️ آخر درس:*"
+            branchName: "String (نحو، قراءة، الخ)", 
+            status: "on_track | ahead | behind | not_set", 
+            lastLesson: "String (عنوان آخر درس)",
+            lessonDifference: "String (عدد الدروس)"
         }],
-        meetingsAttended: "count",
-        notebookCorrection: "from *تصحيح الدفاتر:*",
-        preparationBook: "from *دفتر التحضير:*",
-        questionsGlossary: "from *مسرد الأسئلة:*",
-        programsImplemented: "list under *💻 البرامج المنفذة:*",
-        strategiesImplemented: "list under *💡 الاستراتيجيات المستخدمة:*",
-        toolsUsed: "list under *🛠️ الوسائل المستخدمة:*",
-        sourcesUsed: "list under *📚 المصادر المستخدمة:*",
-        tasksDone: "list under *✅ التكاليف:*",
-        testsDelivered: "list under *📄 الاختبارات:*",
-        peerVisitsDone: "list under *🤝 الزيارات التبادلية:*"
+        meetingsAttended: "Number",
+        notebookCorrection: "Number (0-100)",
+        preparationBook: "Number (0-100)",
+        questionsGlossary: "Number (0-100)",
+        programsImplemented: "String (formatted list)",
+        strategiesImplemented: "String (formatted list)",
+        toolsUsed: "String (formatted list)",
+        sourcesUsed: "String (formatted list)",
+        tasksDone: "String (formatted list)",
+        testsDelivered: "String (formatted list)",
+        peerVisitsDone: "String (formatted list)"
     };
 
     const reportTitle = t('reportTitle')
@@ -293,7 +325,7 @@ const ReportEditor: React.FC<{
                 </div>
                 {showAIImport && (
                     <div className="mt-4 border-t border-indigo-200 pt-4">
-                        <ImportDataSection onDataParsed={(data) => handleDataParsed(data as any)} formStructure={formStructureForAI} customButtonLabel="تعبئة الحقول" />
+                        <ImportDataSection onDataParsed={handleDataParsed} formStructure={formStructureForAI} customButtonLabel="تعبئة الحقول" />
                     </div>
                 )}
             </div>

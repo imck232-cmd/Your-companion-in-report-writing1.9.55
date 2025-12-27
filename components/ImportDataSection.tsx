@@ -44,7 +44,6 @@ const ImportDataSection: React.FC<ImportDataSectionProps> = ({ onDataParsed, for
     };
 
     const cleanJsonString = (str: string) => {
-        // More robust cleaning for AI-generated code blocks
         let cleaned = str.replace(/```json/gi, '').replace(/```/g, '');
         const firstBrace = cleaned.indexOf('{');
         const lastBrace = cleaned.lastIndexOf('}');
@@ -62,54 +61,41 @@ const ImportDataSection: React.FC<ImportDataSectionProps> = ({ onDataParsed, for
         try {
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
             const prompt = `
-                You are a precise data extraction engine for Arabic Educational Reports.
+                You are a world-class Arabic text parser for educational reports.
                 
-                **TASK:**
-                Extract structured data from the source text and map it to the provided JSON structure.
-                If a section is mentioned but has no values (e.g., empty bullets or "--"), return an empty string "" or an empty array [] for that field. 
-                DO NOT invent data. DO NOT omit fields from the structure.
+                **TARGET:**
+                Extract data from the source text and map it to this JSON structure:
+                ${JSON.stringify(formStructure, null, 2)}
+
+                **MAPPING RULES (MANDATORY):**
+                1. Date (*📅 التاريخ:*): Normalize "16‏/12‏/2025" or similar to ISO "YYYY-MM-DD".
+                2. Status Mapping (الحالة):
+                   - "مطابق لخطة الوزارة" -> "on_track"
+                   - "متقدم عن خطة الوزارة" -> "ahead"
+                   - "متأخر عن خطة الوزارة" -> "behind"
+                   - any variation of "--" or "لم يحدد" or empty -> "not_set"
+                3. Lesson Difference: If "متقدم بـ 3" extract "3".
+                4. Percentages: Extract ONLY the number. "100%" becomes "100", "85 %" becomes "85".
+                5. Lists (*💻 البرامج*, *💡 الاستراتيجيات*, etc): 
+                   - Extract all items found under the header.
+                   - Return as a single string where items are separated by newlines ("\\n"), each starting with "- ".
+                6. Branches (*📌 فرع:*): 
+                   - Extract EACH branch separately into the 'branches' array.
+                   - 'branchName' is the text after "فرع:".
+                   - 'lastLesson' is the text after "*✍️ آخر درس:*".
 
                 **SOURCE TEXT:**
                 ---
                 ${text}
                 ---
 
-                **TARGET JSON STRUCTURE:**
-                ${JSON.stringify(formStructure, null, 2)}
-
-                **GUIDELINES:**
-                1. Anchors: Use Emojis (👨‍🏫, 🏫, 📅, 📌, 📊, 📝, 💻, 💡, 🛠️, 📚, ✅, 📄, 🤝) to locate sections.
-                2. *👨‍🏫 المعلم:* -> teacherId (String Name)
-                3. *📖 المادة:* -> subject (Extract only the text before any hyphen)
-                4. *الصف:* -> grade (Extract full text)
-                5. *الفصل:* -> semester ('الأول' or 'الثاني')
-                6. *📅 التاريخ:* -> date (Standardize to YYYY-MM-DD)
-                
-                7. **Syllabus Progress Section (*📘 السير في المنهج*):**
-                   - For each *📌 فرع:*, extract details.
-                   - Mapping for 'status':
-                     - "مطابق لخطة الوزارة" -> "on_track"
-                     - "متقدم عن خطة الوزارة" -> "ahead"
-                     - "متأخر عن خطة الوزارة" -> "behind"
-                     - Any empty, "--", or unknown status -> "not_set"
-                   - Lesson Difference: If ahead/behind by X lessons, extract X as a string number.
-
-                8. **Quantitative Section (*📊 الإحصائيات الكمية*):**
-                   - 'meetingsAttended': Extract number from "اللقاءات التطويرية".
-                   - Percentages: extract numbers (0-100) and remove any "%" symbol.
-
-                9. **Qualitative Section (*📝 البيانات النوعية*):**
-                   - Under headers like *💻 البرامج المنفذة:*, *💡 الاستراتيجيات المستخدمة:*, etc.
-                   - If bullet points exist, collect them all and join with newlines "\\n".
-                   - If the section is empty, return "".
-
-                **OUTPUT:** Return ONLY a valid JSON object. No preamble.
+                **OUTPUT:** Return ONLY a valid JSON object. No explanations.
             `;
             
             const response: GenerateContentResponse = await ai.models.generateContent({
                 model: 'gemini-3-flash-preview',
                 contents: prompt,
-                 config: { temperature: 0.1 }
+                config: { temperature: 0.1 }
             });
 
             const rawText = response.text || '';
@@ -117,7 +103,6 @@ const ImportDataSection: React.FC<ImportDataSectionProps> = ({ onDataParsed, for
             
             try {
                 const parsedData = JSON.parse(cleanedJson);
-                // Validate parsedData structure if needed here
                 onDataParsed(parsedData);
             } catch (jsonErr) {
                 console.error("JSON Parse Error:", cleanedJson);
