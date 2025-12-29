@@ -29,7 +29,8 @@ const ReportEditor: React.FC<{
     const { t } = useLanguage();
     const [isSaving, setIsSaving] = useState(false);
     
-    const teacherMap = useMemo(() => new Map(allTeachers.filter(Boolean).map(t => [t.id, t.name])), [allTeachers]);
+    // Fix: Explicitly type Map to avoid 'unknown' return from .get()
+    const teacherMap = useMemo(() => new Map<string, string>(allTeachers.filter(Boolean).map(t => [t.id, t.name])), [allTeachers]);
 
     const handleTeacherChange = (newTeacherId: string) => {
         const latest = allReports
@@ -273,7 +274,9 @@ const FilterDialog: React.FC<{
 }> = ({ reports, allTeachers, onClose, onViewReport }) => {
     const { t } = useLanguage();
     const [filter, setFilter] = useState({ name: '', subject: '', grade: '', status: 'all' });
-    const teacherMap = new Map(allTeachers.map(t => [t.id, t.name]));
+    
+    // Fix: Explicitly type Map to avoid 'unknown' return from .get()
+    const teacherMap = useMemo(() => new Map<string, string>(allTeachers.map(t => [t.id, t.name])), [allTeachers]);
 
     const filtered = reports.filter(r => {
         const nameMatch = !filter.name || teacherMap.get(r.teacherId)?.includes(filter.name);
@@ -387,12 +390,13 @@ const SyllabusCoverageManager: React.FC<SyllabusCoverageManagerProps> = ({ repor
         }, 100);
     };
 
-    const teacherMap = new Map(allTeachers.filter(Boolean).map(t => [t.id, t.name]));
+    // Fix: Explicitly type Map to avoid 'unknown' return from .get()
+    const teacherMap = useMemo(() => new Map<string, string>(allTeachers.filter(Boolean).map(t => [t.id, t.name])), [allTeachers]);
 
     const filteredReports = useMemo(() => {
         if (!searchTerm) return reports;
         return reports.filter(r => teacherMap.get(r.teacherId)?.includes(searchTerm));
-    }, [reports, searchTerm, allTeachers]);
+    }, [reports, searchTerm, teacherMap]);
 
     const importFormStructure = {
         subject: "", date: "", schoolName: "", teacherName: "",

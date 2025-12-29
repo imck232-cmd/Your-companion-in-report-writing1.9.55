@@ -2,7 +2,6 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Meeting, PeerVisit, DeliverySheet, DeliveryRecord, MeetingOutcome, SchoolCalendarEvent, Teacher } from '../types';
 import { useLanguage } from '../i18n/LanguageContext';
-// FIX: Removed 'exportDeliveryRecords' as it is not exported from '../lib/exportUtils' and not used in this file.
 import { exportPeerVisits, exportMeeting as exportMeetingUtil, exportMeetingSummary as exportMeetingSummaryUtil } from '../lib/exportUtils';
 import { useAuth } from '../contexts/AuthContext';
 import { SUBJECTS } from '../constants';
@@ -94,7 +93,6 @@ const MeetingMinutes: React.FC<{
     
     const handleSign = (attendeeName: string) => {
         if (!selectedMeeting || !currentUser) return;
-        // Simplified signature using current user's name
         const newSignatures = { ...selectedMeeting.signatures, [attendeeName]: currentUser.name };
         handleUpdateMeeting('signatures', newSignatures);
     }
@@ -144,7 +142,6 @@ const MeetingMinutes: React.FC<{
             <div className="p-4 bg-gray-50 border rounded-lg space-y-4">
                  <button onClick={() => setSelectedMeeting(null)} className="mb-4 text-sky-600 hover:underline">&larr; {t('back')}</button>
                  <h3 className="text-xl font-bold text-primary">{t('meetingReport')}</h3>
-                 {/* Inputs for day, date, time, subject */}
                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                     <input type="text" value={selectedMeeting.day} onChange={e => handleUpdateMeeting('day', e.target.value)} placeholder={t('meetingDay')} className="p-2 border rounded" />
                     <input type="date" value={selectedMeeting.date} onChange={e => handleUpdateMeeting('date', e.target.value)} className="p-2 border rounded" />
@@ -152,13 +149,11 @@ const MeetingMinutes: React.FC<{
                     <input type="text" value={selectedMeeting.subject} onChange={e => handleUpdateMeeting('subject', e.target.value)} placeholder={t('meetingWith')} className="p-2 border rounded" />
                  </div>
                  
-                {/* Outcomes */}
                 <div className="space-y-4">
                     {selectedMeeting.outcomes.map((o, i) => <MeetingOutcomeCard key={o.id} outcome={o} index={i} onUpdate={handleOutcomeUpdate} onDelete={deleteOutcome} />)}
                 </div>
                 <button onClick={addOutcome} className="px-4 py-2 bg-sky-500 text-white rounded hover:bg-sky-600">+ {t('addNewItem')}</button>
                 
-                {/* Attendees and Signatures */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                      <div>
                         <label className="font-semibold">{t('attendees')}</label>
@@ -253,7 +248,8 @@ const PeerVisits: React.FC<{
     deleteVisit: (visitId: string) => void;
     allTeachers: Teacher[];
     academicYear: string;
-}> = ({ visits, setVisits, deleteVisit, allTeachers, academicYear }) => {
+    selectedSchool: string; // مضافة لضمان ربط الزيارة بالمدرسة
+}> = ({ visits, setVisits, deleteVisit, allTeachers, academicYear, selectedSchool }) => {
     const { t } = useLanguage();
     const { currentUser } = useAuth();
     
@@ -264,7 +260,9 @@ const PeerVisits: React.FC<{
             id: `pv-${Date.now()}`, visitingTeacher: '', visitingSubject: '', visitingGrade: '',
             visitedTeacher: '', visitedSpecialization: '', visitedSubject: '', visitedGrade: '',
             status: 'لم تتم',
-            academicYear: academicYear, authorId: currentUser?.id
+            academicYear: academicYear, 
+            authorId: currentUser?.id,
+            schoolName: selectedSchool // مضافة لضمان الربط
         };
         setVisits(prev => [newVisit, ...prev]);
     };
@@ -317,7 +315,8 @@ const DeliveryRecords: React.FC<{
     setSheets: React.Dispatch<React.SetStateAction<DeliverySheet[]>>;
     deleteSheet: (sheetId: string) => void;
     allTeachers: Teacher[];
-}> = ({ sheets, setSheets, deleteSheet, allTeachers }) => {
+    selectedSchool: string; // مضافة لضمان ربط الكشف بالمدرسة
+}> = ({ sheets, setSheets, deleteSheet, allTeachers, selectedSchool }) => {
     const { t } = useLanguage();
     const [selectedSheetId, setSelectedSheetId] = useState<string | null>(null);
     const [newSheetName, setNewSheetName] = useState('');
@@ -332,6 +331,7 @@ const DeliveryRecords: React.FC<{
         const newSheet: DeliverySheet = {
             id: `ds-${Date.now()}`,
             name: newSheetName.trim(),
+            schoolName: selectedSchool, // مضافة لضمان الربط
             records: allTeachers.map(teacher => ({
                 id: `dr-${teacher.id}-${Date.now()}`,
                 teacherId: teacher.id,
@@ -498,6 +498,7 @@ interface SupervisoryToolsProps {
     deleteDeliverySheet: (sheetId: string) => void;
     allTeachers: Teacher[];
     academicYear: string;
+    selectedSchool: string; // مضافة لضمان استقلالية المدرسة
 }
 
 const SupervisoryTools: React.FC<SupervisoryToolsProps> = (props) => {
@@ -515,10 +516,10 @@ const SupervisoryTools: React.FC<SupervisoryToolsProps> = (props) => {
                 return <SchoolCalendar />;
             case 'peer_visit':
                  if (!hasPermission('view_peer_visits')) return null;
-                return <PeerVisits visits={props.peerVisits} setVisits={props.setPeerVisits} deleteVisit={props.deletePeerVisit} allTeachers={props.allTeachers} academicYear={props.academicYear}/>;
+                return <PeerVisits visits={props.peerVisits} setVisits={props.setPeerVisits} deleteVisit={props.deletePeerVisit} allTeachers={props.allTeachers} academicYear={props.academicYear} selectedSchool={props.selectedSchool}/>;
             case 'delivery':
                  if (!hasPermission('view_delivery_records')) return null;
-                return <DeliveryRecords sheets={props.deliverySheets} setSheets={props.setDeliverySheets} deleteSheet={props.deleteDeliverySheet} allTeachers={props.allTeachers} />;
+                return <DeliveryRecords sheets={props.deliverySheets} setSheets={props.setDeliverySheets} deleteSheet={props.deleteDeliverySheet} allTeachers={props.allTeachers} selectedSchool={props.selectedSchool} />;
             default:
                 return null;
         }

@@ -11,6 +11,7 @@ import CustomizableInputSection from './CustomizableInputSection';
 interface SupervisoryPlanProps {
     plans: SupervisoryPlanWrapper[];
     setPlans: React.Dispatch<React.SetStateAction<SupervisoryPlanWrapper[]>>;
+    selectedSchool: string; // مضافة لضمان ربط الخطة بالمدرسة
 }
 
 // --- Props for the single plan view component ---
@@ -111,7 +112,6 @@ const PlanPerformanceDashboard: React.FC<{ planData: SupervisoryPlan }> = ({ pla
         // 2. Performance by Domain
         const initialDomains: {[domain: string]: { planned: number; executed: number }} = {};
         
-        // FIX: Removed generic from reduce call and explicitly typed accumulator argument 'acc' to avoid "Untyped function calls" error.
         const domains = tasks.reduce((acc: {[key: string]: { planned: number; executed: number }}, task) => {
             const domainKey = task.domain;
             if (!acc[domainKey]) {
@@ -123,11 +123,10 @@ const PlanPerformanceDashboard: React.FC<{ planData: SupervisoryPlan }> = ({ pla
         }, initialDomains);
 
         const domainPerformance = Object.entries(domains).map(([name, data]) => {
-            // FIX: Explicitly cast data to the expected type to resolve 'unknown' type errors.
             const d = data as { planned: number; executed: number };
             const percentage = d.planned > 0 ? (d.executed / d.planned) * 100 : 0;
             return { name, percentage };
-        }).filter(d => d.name); // Filter out empty domain names
+        }).filter(d => d.name); 
 
         return {
             doneCount,
@@ -147,7 +146,6 @@ const PlanPerformanceDashboard: React.FC<{ planData: SupervisoryPlan }> = ({ pla
         <div className="mt-8 p-4 border-t-2 border-primary">
             <h3 className="text-2xl font-bold text-primary mb-4 text-center">مؤشرات الأداء حسب مجال الخطة</h3>
             
-            {/* Overall Status */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 text-center">
                 <div className="p-4 bg-green-100 text-green-800 rounded-lg shadow">
                     <div className="text-3xl font-bold">{performanceData.doneCount}</div>
@@ -163,7 +161,6 @@ const PlanPerformanceDashboard: React.FC<{ planData: SupervisoryPlan }> = ({ pla
                 </div>
             </div>
 
-            {/* Performance by Domain */}
             <div className="space-y-4 mb-8">
                 <h4 className="text-xl font-semibold text-gray-700">{t('executionByDomain')}</h4>
                 {performanceData.domainPerformance.map(domain => (
@@ -182,11 +179,9 @@ const PlanPerformanceDashboard: React.FC<{ planData: SupervisoryPlan }> = ({ pla
                 ))}
             </div>
 
-            {/* Charts Section */}
             <div>
                 <h4 className="text-xl font-semibold text-gray-700 mb-4">مخططات بيانية توضيحية</h4>
                 
-                {/* Individual Charts */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                     {performanceData.domainPerformance.map(domain => (
                         <div key={domain.name} className="p-3 border rounded-lg">
@@ -203,7 +198,6 @@ const PlanPerformanceDashboard: React.FC<{ planData: SupervisoryPlan }> = ({ pla
                     ))}
                 </div>
 
-                {/* Combined Chart */}
                 <div className="p-4 border rounded-lg">
                     <h5 className="font-semibold text-center mb-4">مقارنة بين المجالات</h5>
                     <div className="flex justify-between items-end gap-2 h-64 border-l-2 border-b-2 border-gray-300 p-2">
@@ -230,7 +224,6 @@ const SinglePlanView: React.FC<SinglePlanViewProps> = ({ planWrapper, onUpdate, 
     const { t } = useLanguage();
     const { planData, isCollapsed } = planWrapper;
 
-    // State for all new features
     const [showImport, setShowImport] = useState(false);
     const [importText, setImportText] = useState('');
     const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -305,7 +298,7 @@ const SinglePlanView: React.FC<SinglePlanViewProps> = ({ planWrapper, onUpdate, 
             return 'تم التنفيذ';
         }
 
-        return 'قيد التنفيذ'; // Fallback for invalid input
+        return 'قيد التنفيذ';
     };
 
     const handleAnalyzePlan = async () => {
@@ -393,7 +386,6 @@ const SinglePlanView: React.FC<SinglePlanViewProps> = ({ planWrapper, onUpdate, 
     };
     
     const handleExport = (format: 'txt' | 'pdf' | 'excel' | 'whatsapp') => {
-        // Pass taskFilterMonths as selectedMonths for filtering
         exportSupervisoryPlan(format, planWrapper, editableHeaders, t, taskFilterMonths);
     };
 
@@ -429,7 +421,6 @@ const SinglePlanView: React.FC<SinglePlanViewProps> = ({ planWrapper, onUpdate, 
 
     // --- Specific Handlers for the 4 New Tables ---
 
-    // 1. Off-Plan
     const handleAddOffPlan = () => {
         const newItem: OffPlanItem = { id: `op-${Date.now()}`, domain: '', activity: '', reason: '', notes: '' };
         onUpdate({ ...planWrapper, offPlanItems: [...(planWrapper.offPlanItems || []), newItem] });
@@ -442,7 +433,6 @@ const SinglePlanView: React.FC<SinglePlanViewProps> = ({ planWrapper, onUpdate, 
         onUpdate({ ...planWrapper, offPlanItems: (planWrapper.offPlanItems || []).filter(i => i.id !== id) });
     };
 
-    // 2. Strengths
     const handleAddStrength = () => {
         const newItem: StrengthItem = { id: `st-${Date.now()}`, strength: '', reinforcement: '', notes: '' };
         onUpdate({ ...planWrapper, strengthItems: [...(planWrapper.strengthItems || []), newItem] });
@@ -455,7 +445,6 @@ const SinglePlanView: React.FC<SinglePlanViewProps> = ({ planWrapper, onUpdate, 
         onUpdate({ ...planWrapper, strengthItems: (planWrapper.strengthItems || []).filter(i => i.id !== id) });
     };
 
-    // 3. Problems
     const handleAddProblem = () => {
         const newItem: ProblemItem = { id: `pr-${Date.now()}`, problem: '', solution: '', notes: '' };
         onUpdate({ ...planWrapper, problemItems: [...(planWrapper.problemItems || []), newItem] });
@@ -468,7 +457,6 @@ const SinglePlanView: React.FC<SinglePlanViewProps> = ({ planWrapper, onUpdate, 
         onUpdate({ ...planWrapper, problemItems: (planWrapper.problemItems || []).filter(i => i.id !== id) });
     };
 
-    // 4. Recommendations
     const handleAddRecommendation = () => {
         const newItem: RecommendationItem = { id: `rec-${Date.now()}`, recommendation: '' };
         onUpdate({ ...planWrapper, recommendationItems: [...(planWrapper.recommendationItems || []), newItem] });
@@ -517,7 +505,6 @@ const SinglePlanView: React.FC<SinglePlanViewProps> = ({ planWrapper, onUpdate, 
                         </div>
                     </div>
                     
-                    {/* --- New Sections Tables --- */}
                     <div className="space-y-6">
                         <DynamicTable<OffPlanItem> 
                             title="أولاً: أنشطة خارج الخطة"
@@ -608,7 +595,6 @@ const SinglePlanView: React.FC<SinglePlanViewProps> = ({ planWrapper, onUpdate, 
                         </div>
                     </div>
 
-                    {/* Table */}
                     <div className="overflow-x-auto border rounded-lg" style={{ maxHeight: '70vh' }}>
                         <table className="min-w-full border-collapse text-xs">
                             <thead className="bg-primary-light text-white text-center sticky top-0 z-10">
@@ -655,7 +641,6 @@ const SinglePlanView: React.FC<SinglePlanViewProps> = ({ planWrapper, onUpdate, 
                         </table>
                     </div>
 
-                     {/* Generated Tasks Section */}
                     <div className="p-4 border rounded-lg">
                         <h3 className="text-xl font-bold text-primary mb-4">{t('generatedTasks')}</h3>
                         <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -734,7 +719,6 @@ const SinglePlanView: React.FC<SinglePlanViewProps> = ({ planWrapper, onUpdate, 
                         </div>
                     </div>
 
-                    {/* Plan Performance Dashboard Section */}
                     <PlanPerformanceDashboard planData={planData} />
 
                     <div className="flex flex-wrap justify-center gap-3 pt-4 border-t">
@@ -749,7 +733,7 @@ const SinglePlanView: React.FC<SinglePlanViewProps> = ({ planWrapper, onUpdate, 
     );
 };
 
-const SupervisoryPlanComponent: React.FC<SupervisoryPlanProps> = ({ plans, setPlans }) => {
+const SupervisoryPlanComponent: React.FC<SupervisoryPlanProps> = ({ plans, setPlans, selectedSchool }) => {
     const { t } = useLanguage();
     
     const handleAddNewPlan = () => {
@@ -770,8 +754,8 @@ const SupervisoryPlanComponent: React.FC<SupervisoryPlanProps> = ({ plans, setPl
             strengthItems: [],
             problemItems: [],
             recommendationItems: [],
-            // Legacy
             offPlanActivities: [],
+            schoolName: selectedSchool // ضمان ربط الخطة بالمدرسة الحالية
         };
         setPlans(prev => [newPlan, ...prev.map(p => ({...p, isCollapsed: true}))]);
     };

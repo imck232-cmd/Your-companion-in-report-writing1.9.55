@@ -56,7 +56,7 @@ interface TeacherManagementProps {
   setDeliverySheets: React.Dispatch<React.SetStateAction<DeliverySheet[]>>;
   deleteDeliverySheet: (sheetId: string) => void;
   setBulkMessages: React.Dispatch<React.SetStateAction<BulkMessage[]>>;
-  usersInSchool: User[]; // مضافة لفلترة الأكواد
+  usersInSchool: User[]; 
 }
 
 type View = 'teachers' | 'syllabus_coverage' | 'aggregated_reports' | 'performance_dashboard' | 'special_reports' | 'syllabus' | 'task_plan' | 'supervisory_tools' | 'bulk_message' | 'user_management' | 'supervisory_plan' | 'evaluation_summary';
@@ -503,7 +503,7 @@ const TeacherManagement: React.FC<TeacherManagementProps> = (props) => {
       case 'user_management':
         return <UserManagement allTeachers={allTeachers} usersInSchool={usersInSchool} />;
       case 'supervisory_plan':
-        return <SupervisoryPlanComponent plans={supervisoryPlans} setPlans={setSupervisoryPlans} />;
+        return <SupervisoryPlanComponent plans={supervisoryPlans} setPlans={setSupervisoryPlans} selectedSchool={selectedSchool} />;
       case 'task_plan':
         return <TaskPlan tasks={tasks} setTasks={setTasks} />;
       case 'supervisory_tools':
@@ -519,6 +519,7 @@ const TeacherManagement: React.FC<TeacherManagementProps> = (props) => {
                     deleteDeliverySheet={deleteDeliverySheet}
                     allTeachers={allTeachers}
                     academicYear={academicYear!}
+                    selectedSchool={selectedSchool} // ممررة لضمان الاستقلالية
                 />;
       case 'bulk_message':
         return <BulkMessageSender 
