@@ -80,6 +80,25 @@ export const sendToWhatsApp = (report: Report, teacher: Teacher) => {
     let content = "";
     const percentage = calculateReportPercentage(report).toFixed(1);
 
+    const getScoreEmoji = (score: number) => {
+        if (score === 4) return "🟢";
+        if (score === 3) return "🔵";
+        if (score === 2) return "🟡";
+        if (score === 1) return "🟠";
+        return "🔴";
+    };
+
+    const getPerformanceDesc = (p: number) => {
+        const val = Number(p);
+        if (val <= 30) return "القصور كبير";
+        if (val <= 40) return "يتطلب تحسين أكبر";
+        if (val <= 60) return "تحسن جميل";
+        if (val <= 74) return "تحسن كبير";
+        if (val <= 80) return "تحسن كبير ملحوظ";
+        if (val <= 89) return "عملك متميز وبقي القليل لتصل إلى التميز الأكبر";
+        return "عمل ممتاز جداً، بوركت جهودكم المباركة";
+    };
+
     if (report.evaluationType === 'class_session') {
         const r = report as ClassSessionEvaluationReport;
         content += `*📝 تقرير تقييم الحصة الدراسية*\n\n`;
@@ -87,10 +106,54 @@ export const sendToWhatsApp = (report: Report, teacher: Teacher) => {
         content += `👨‍🏫 *المعلم:* ${teacher.name}\n`;
         content += `📅 *التاريخ:* ${r.date} | *الفصل:* ${r.semester}\n`;
         content += `📖 *المادة:* ${r.subject} | *الصف:* ${r.grades}\n`;
+        content += `🔖 *الفرع:* ${r.branch === 'main' ? 'رئيسي' : r.branch === 'boys' ? 'طلاب' : 'طالبات'}\n`;
+        content += `🕵️ *المشرف:* ${r.supervisorName || 'غير محدد'}\n`;
+        content += `📋 *نوع الزيارة:* ${r.visitType}\n`;
+        content += `🔢 *رقم الدرس:* ${r.lessonNumber || 'غير محدد'}\n`;
+        content += `📄 *عنوان الدرس:* ${r.lessonName}\n`;
         content += `--------------------------------\n`;
         content += `📈 *نسبة الأداء الإجمالية: ${percentage}%*\n`;
+        content += `⭐ *التقدير:* ${getPerformanceDesc(Number(percentage))}\n`;
         content += `--------------------------------\n\n`;
+
+        content += `*📊 تفاصيل التقييم بالدرجات:*\n`;
+        r.criterionGroups.forEach(group => {
+            content += `\n*--- ${group.title} ---*\n`;
+            group.criteria.forEach(c => {
+                content += `${getScoreEmoji(c.score)} ${c.label}: ${c.score}/4\n`;
+            });
+        });
+
+        content += `\n*📝 البيانات النوعية:*\n`;
+        if (r.strategies) content += `\n💡 *الاستراتيجيات المنفذة:* \n${r.strategies}\n`;
+        if (r.tools) content += `\n🛠️ *الوسائل المستخدمة:* \n${r.tools}\n`;
+        if (r.programs) content += `\n💻 *البرامج المنفذة:* \n${r.programs}\n`;
+        if (r.sources) content += `\n📚 *المصادر المستخدمة:* \n${r.sources}\n`;
+        
+        content += `\n--------------------------------\n`;
+        if (r.positives) content += `\n👍 *الإيجابيات:* \n${r.positives}\n`;
+        if (r.notesForImprovement) content += `\n📝 *ملاحظات للتحسين:* \n${r.notesForImprovement}\n`;
+        if (r.recommendations) content += `\n🎯 *التوصيات:* \n${r.recommendations}\n`;
+        if (r.employeeComment) content += `\n✍️ *تعليق الموظف:* \n${r.employeeComment}\n`;
+
+    } else if (report.evaluationType === 'general') {
+        const r = report as GeneralEvaluationReport;
+        content += `*📝 تقرير التقييم العام*\n\n`;
+        content += `🏫 *المدرسة:* ${r.school}\n`;
+        content += `👨‍🏫 *المعلم:* ${teacher.name}\n`;
+        content += `📅 *التاريخ:* ${r.date} | *الفصل:* ${r.semester}\n`;
+        content += `--------------------------------\n`;
+        content += `📈 *نسبة الأداء: ${percentage}%*\n`;
+        content += `--------------------------------\n\n`;
+        
+        r.criteria.forEach(c => {
+            content += `${getScoreEmoji(c.score)} ${c.label}: ${c.score}/4\n`;
+        });
+        
+        if (r.strategies) content += `\n💡 *الاستراتيجيات:* ${r.strategies}\n`;
+        if (r.tools) content += `\n🛠️ *الوسائل:* ${r.tools}\n`;
     }
+
     window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(content)}`, '_blank');
 };
 
