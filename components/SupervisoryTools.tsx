@@ -266,12 +266,15 @@ const PeerVisits: React.FC<{
 
     const teacherNames = useMemo(() => allTeachers.map(t => t.name), [allTeachers]);
     const teacherBranchMap = useMemo(() => new Map(allTeachers.map(t => [t.name, t.branch])), [allTeachers]);
+    const teacherSubjectMap = useMemo(() => new Map(allTeachers.map(t => [t.name, t.subjects])), [allTeachers]);
+    const teacherGradeMap = useMemo(() => new Map(allTeachers.map(t => [t.name, t.gradesTaught])), [allTeachers]);
     
     const handleAddVisit = () => {
         const newVisit: PeerVisit = {
             id: `pv-${Date.now()}`, visitingTeacher: '', visitingSubject: '', visitingGrade: '',
             visitedTeacher: '', visitedSpecialization: '', visitedSubject: '', visitedGrade: '',
             status: 'لم تتم',
+            visitCount: '1',
             academicYear: academicYear, 
             authorId: currentUser?.id,
             schoolName: selectedSchool
@@ -280,7 +283,20 @@ const PeerVisits: React.FC<{
     };
     
     const handleUpdateVisit = (id: string, field: keyof PeerVisit, value: string) => {
-        setVisits(prev => prev.map(v => v.id === id ? {...v, [field]: value} : v));
+        setVisits(prev => prev.map(v => {
+            if (v.id === id) {
+                const updated = { ...v, [field]: value };
+                // ميزة التعبئة التلقائية للزائر
+                if (field === 'visitingTeacher') {
+                    const subj = teacherSubjectMap.get(value);
+                    const grd = teacherGradeMap.get(value);
+                    if (subj) updated.visitingSubject = subj.split(',')[0].trim();
+                    if (grd) updated.visitingGrade = grd.split(',')[0].trim();
+                }
+                return updated;
+            }
+            return v;
+        }));
     };
 
     // --- Aggregated & Filtered Data Logic ---
@@ -326,11 +342,13 @@ const PeerVisits: React.FC<{
 
         aggregatedData.forEach((item, index) => {
             content += `*📌 زيارة رقم (${index + 1}):*\n`;
-            content += `*🔢 عدد الزيارات:* ${item.count}\n`;
+            content += `*🔢 عدد المرات:* ${item.visit.visitCount || item.count}\n`;
             content += `*👤 المعلم الزائر:* ${item.visit.visitingTeacher}\n`;
-            content += `*📖 المادة:* ${item.visit.visitingSubject} | *🏫 الصف:* ${item.visit.visitingGrade}\n`;
+            content += `*📖 المادة:* ${item.visit.visitingSubject}\n`;
+            content += `*🏫 الصف:* ${item.visit.visitingGrade}\n`;
             content += `*🎯 المعلم المزور:* ${item.visit.visitedTeacher}\n`;
-            content += `*📖 مادة المزور:* ${item.visit.visitedSubject} | *🏫 صف المزور:* ${item.visit.visitedGrade}\n`;
+            content += `*📖 مادة المزور:* ${item.visit.visitedSubject}\n`;
+            content += `*🏫 صف المزور:* ${item.visit.visitedGrade}\n`;
             content += `*✅ الحالة:* ${item.visit.status || 'لم تتم'}\n`;
             content += `--------------------------------\n`;
         });
@@ -345,23 +363,23 @@ const PeerVisits: React.FC<{
                  <div className="flex gap-2">
                     <button 
                         onClick={() => setShowFilters(!showFilters)} 
-                        className={`px-4 py-2 rounded-lg font-bold transition-all flex items-center gap-2 ${showFilters ? 'bg-amber-500 text-white' : 'bg-gray-100 text-gray-700 border'}`}
+                        className={`px-2 py-1 rounded-lg font-bold transition-all flex items-center gap-1 text-xs ${showFilters ? 'bg-amber-500 text-white' : 'bg-gray-100 text-gray-700 border'}`}
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                             <path fillRule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z" clipRule="evenodd" />
                         </svg>
-                        {showFilters ? 'إخفاء الفلترة' : 'تصفية وتقارير'}
+                        {showFilters ? 'إخفاء الفلترة' : 'تصفية وتقرير'}
                     </button>
                     {showFilters && (
                         <button 
                             onClick={handleWhatsAppExport}
-                            className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 font-bold flex items-center gap-2"
+                            className="px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600 font-bold flex items-center gap-1 text-xs"
                         >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.894 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.886-.001 2.267.651 4.383 1.905 6.25l-.275 1.002 1.03 1.018zM8.718 7.243c.133-.336.434-.543.818-.576.43-.034.636.101.804.312.189.231.631 1.52.663 1.623.032.102.05.213-.016.344-.065.131-.229.213-.401.325-.202.129-.41.26-.552.404-.16.161-.318.35-.165.608.175.292.747 1.229 1.624 2.016.994.881 1.866 1.158 2.149 1.24.31.09.462.046.63-.122.19-.184.82-1.022.952-1.229.132-.206.264-.238.44-.152.195.094 1.306.685 1.518.79.212.105.356.161.404.248.048.088.028.471-.124.922-.152.452-.947.881-1.306.922-.32.034-1.127.02-1.748-.227-.753-.3-1.859-1.158-3.041-2.451-1.37-1.52-2.316-3.213-2.316-3.213s-.165-.286-.318-.553c-.152-.267-.32-.287-.462-.287-.132 0-.304.01-.462.01z"/></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.894 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.886-.001 2.267.651 4.383 1.905 6.25l-.275 1.002 1.03 1.018zM8.718 7.243c.133-.336.434-.543.818-.576.43-.034.636.101.804.312.189.231.631 1.52.663 1.623.032.102.05.213-.016.344-.065.131-.229.213-.401.325-.202.129-.41.26-.552.404-.16.161-.318.35-.165.608.175.292.747 1.229 1.624 2.016.994.881 1.866 1.158 2.149 1.24.31.09.462.046.63-.122.19-.184.82-1.022.952-1.229.132-.206.264-.238.44-.152.195.094 1.306.685 1.518.79.212.105.356.161.404.248.048.088.028.471-.124.922-.152.452-.947.881-1.306.922-.32.034-1.127.02-1.748-.227-.753-.3-1.859-1.158-3.041-2.451-1.37-1.52-2.316-3.213-2.316-3.213s-.165-.286-.318-.553c-.152-.267-.32-.287-.462-.287-.132 0-.304.01-.462.01z"/></svg>
                             واتساب
                         </button>
                     )}
-                    <button onClick={() => exportPeerVisits({format: 'pdf', visits, academicYear})} className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 font-bold">{t('exportPdf')}</button>
+                    <button onClick={() => exportPeerVisits({format: 'pdf', visits, academicYear})} className="px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 font-bold flex items-center gap-1 text-xs">{t('exportPdf')}</button>
                  </div>
             </div>
 
@@ -413,21 +431,22 @@ const PeerVisits: React.FC<{
                     <table className="w-full text-sm text-right">
                         <thead className="bg-primary text-white text-xs">
                             <tr>
-                                <th className="p-3 border">عدد الزيارات</th>
+                                <th className="p-3 border">عدد المرات</th>
                                 <th className="p-3 border">المعلم الزائر</th>
                                 <th className="p-3 border">المادة</th>
                                 <th className="p-3 border">الصف</th>
                                 <th className="p-3 border">المعلم المزور</th>
                                 <th className="p-3 border">مادة المزور</th>
                                 <th className="p-3 border">صف المزور</th>
-                                <th className="p-3 border">حالة الزيارة</th>
+                                <th className="p-3 border">الحالة</th>
+                                <th className="p-3 border">عرض</th>
                             </tr>
                         </thead>
                         <tbody>
                             {aggregatedData.map((item, idx) => (
                                 <tr key={idx} className="hover:bg-blue-50 border-b">
                                     <td className="p-3 border text-center font-bold text-primary bg-primary/5">
-                                        {item.count}
+                                        {item.visit.visitCount || item.count}
                                     </td>
                                     <td className="p-3 border font-semibold">{item.visit.visitingTeacher}</td>
                                     <td className="p-3 border">{item.visit.visitingSubject}</td>
@@ -444,11 +463,14 @@ const PeerVisits: React.FC<{
                                             {item.visit.status || 'لم تتم'}
                                         </span>
                                     </td>
+                                    <td className="p-3 border text-center">
+                                        <button onClick={() => document.getElementById(item.visit.id)?.scrollIntoView({behavior: 'smooth'})} className="text-primary hover:underline text-[10px] font-bold">عرض السجل</button>
+                                    </td>
                                 </tr>
                             ))}
                             {aggregatedData.length === 0 && (
                                 <tr>
-                                    <td colSpan={8} className="p-8 text-center text-gray-400 italic">لا توجد زيارات تطابق هذه التصفية.</td>
+                                    <td colSpan={9} className="p-8 text-center text-gray-400 italic">لا توجد زيارات تطابق هذه التصفية.</td>
                                 </tr>
                             )}
                         </tbody>
@@ -462,19 +484,24 @@ const PeerVisits: React.FC<{
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {visits.map(v => (
-                    <div key={v.id} className="p-4 border rounded-lg bg-white shadow-sm grid grid-cols-1 md:grid-cols-2 gap-4 border-r-4 border-r-primary-light">
+                    <div key={v.id} id={v.id} className="p-4 border rounded-lg bg-white shadow-sm grid grid-cols-1 md:grid-cols-2 gap-4 border-r-4 border-r-primary-light">
                          <div className="space-y-2 p-3 border-l rtl:border-l-0 rtl:border-r">
                             <h4 className="font-semibold text-primary">{t('visitingTeacher')}</h4>
-                            <input list="teacher-names" value={v.visitingTeacher} onChange={e => handleUpdateVisit(v.id, 'visitingTeacher', e.target.value)} placeholder={t('teacherName')} className="w-full p-2 border rounded" />
+                            <input list="teacher-names-visitor" value={v.visitingTeacher} onChange={e => handleUpdateVisit(v.id, 'visitingTeacher', e.target.value)} placeholder={t('teacherName')} className="w-full p-2 border rounded" />
+                            <datalist id="teacher-names-visitor">{teacherNames.map(name => <option key={`v-${name}`} value={name} />)}</datalist>
                             <input value={v.visitingSubject} onChange={e => handleUpdateVisit(v.id, 'visitingSubject', e.target.value)} placeholder={t('visitingSubject')} className="w-full p-2 border rounded" />
                             <input value={v.visitingGrade} onChange={e => handleUpdateVisit(v.id, 'visitingGrade', e.target.value)} placeholder={t('visitingGrade')} className="w-full p-2 border rounded" />
                          </div>
                          <div className="space-y-2 p-3">
                             <h4 className="font-semibold text-warning">{t('visitedTeacher')}</h4>
-                            <input list="teacher-names" value={v.visitedTeacher} onChange={e => handleUpdateVisit(v.id, 'visitedTeacher', e.target.value)} placeholder={t('teacherName')} className="w-full p-2 border rounded" />
-                            <datalist id="teacher-names">{teacherNames.map(name => <option key={name} value={name} />)}</datalist>
+                            <input list="teacher-names-visited" value={v.visitedTeacher} onChange={e => handleUpdateVisit(v.id, 'visitedTeacher', e.target.value)} placeholder={t('teacherName')} className="w-full p-2 border rounded" />
+                            <datalist id="teacher-names-visited">{teacherNames.map(name => <option key={`vd-${name}`} value={name} />)}</datalist>
                             <input value={v.visitedSubject} onChange={e => handleUpdateVisit(v.id, 'visitedSubject', e.target.value)} placeholder={t('visitedSubject')} className="w-full p-2 border rounded" />
                             <input value={v.visitedGrade} onChange={e => handleUpdateVisit(v.id, 'visitedGrade', e.target.value)} placeholder={t('visitedGrade')} className="w-full p-2 border rounded" />
+                            <div className="pt-1">
+                                <label className="text-[10px] font-bold text-gray-400 block mb-0.5">عدد المرات</label>
+                                <input type="number" value={v.visitCount || ''} onChange={e => handleUpdateVisit(v.id, 'visitCount', e.target.value)} placeholder="عدد المرات" className="w-full p-1.5 border rounded text-sm bg-gray-50" />
+                            </div>
                          </div>
                          <div className="md:col-span-2 flex justify-between items-center border-t pt-3">
                              <select value={v.status} onChange={e => handleUpdateVisit(v.id, 'status', e.target.value as any)} className="p-2 border rounded text-sm">

@@ -280,6 +280,7 @@ export interface PeerVisit {
     visitedSpecialization: string;
     visitedSubject: string;
     visitedGrade: string;
+    visitCount?: string | number;
     status?: 'تمت الزيارة' | 'قيد التنفيذ' | 'لم تتم';
     authorId?: string;
     academicYear?: string;
