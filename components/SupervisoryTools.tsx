@@ -248,12 +248,24 @@ const PeerVisits: React.FC<{
     deleteVisit: (visitId: string) => void;
     allTeachers: Teacher[];
     academicYear: string;
-    selectedSchool: string; // مضافة لضمان ربط الزيارة بالمدرسة
+    selectedSchool: string;
 }> = ({ visits, setVisits, deleteVisit, allTeachers, academicYear, selectedSchool }) => {
     const { t } = useLanguage();
     const { currentUser } = useAuth();
     
+    // --- Filter States ---
+    const [showFilters, setShowFilters] = useState(false);
+    const [filters, setFilters] = useState({
+        branch: 'all',
+        visitingTeacher: '',
+        visitedTeacher: '',
+        subject: '',
+        grade: '',
+        status: 'all'
+    });
+
     const teacherNames = useMemo(() => allTeachers.map(t => t.name), [allTeachers]);
+    const teacherBranchMap = useMemo(() => new Map(allTeachers.map(t => [t.name, t.branch])), [allTeachers]);
     
     const handleAddVisit = () => {
         const newVisit: PeerVisit = {
@@ -262,7 +274,7 @@ const PeerVisits: React.FC<{
             status: 'لم تتم',
             academicYear: academicYear, 
             authorId: currentUser?.id,
-            schoolName: selectedSchool // مضافة لضمان الربط
+            schoolName: selectedSchool
         };
         setVisits(prev => [newVisit, ...prev]);
     };
@@ -271,36 +283,174 @@ const PeerVisits: React.FC<{
         setVisits(prev => prev.map(v => v.id === id ? {...v, [field]: value} : v));
     };
 
+    // --- Aggregated & Filtered Data Logic ---
+    const aggregatedData = useMemo(() => {
+        // 1. Filter visits based on criteria
+        let filtered = visits.filter(v => {
+            const vBranch = teacherBranchMap.get(v.visitingTeacher) || 'other';
+            
+            const branchMatch = filters.branch === 'all' || vBranch === filters.branch;
+            const visitingMatch = !filters.visitingTeacher || v.visitingTeacher.includes(filters.visitingTeacher);
+            const visitedMatch = !filters.visitedTeacher || v.visitedTeacher.includes(filters.visitedTeacher);
+            const subjectMatch = !filters.subject || v.visitingSubject.includes(filters.subject) || v.visitedSubject.includes(filters.subject);
+            const gradeMatch = !filters.grade || v.visitingGrade.includes(filters.grade) || v.visitedGrade.includes(filters.grade);
+            const statusMatch = filters.status === 'all' || v.status === filters.status;
+
+            return branchMatch && visitingMatch && visitedMatch && subjectMatch && gradeMatch && statusMatch;
+        });
+
+        // 2. Aggregate counts by (Visiting + Visited + Subject + Grade + Status)
+        const groups: Record<string, { visit: PeerVisit, count: number }> = {};
+        filtered.forEach(visit => {
+            const key = `${visit.visitingTeacher}-${visit.visitedTeacher}-${visit.visitingSubject}-${visit.visitingGrade}-${visit.status}`;
+            if (!groups[key]) {
+                groups[key] = { visit, count: 0 };
+            }
+            groups[key].count++;
+        });
+
+        return Object.values(groups);
+    }, [visits, filters, teacherBranchMap]);
+
     return (
         <div className="space-y-4">
             <div className="flex justify-between items-center">
                  <h3 className="text-xl font-bold text-primary">{t('peerVisits')}</h3>
-                 <button onClick={() => exportPeerVisits({format: 'pdf', visits, academicYear})} className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">{t('exportPdf')}</button>
+                 <div className="flex gap-2">
+                    <button 
+                        onClick={() => setShowFilters(!showFilters)} 
+                        className={`px-4 py-2 rounded-lg font-bold transition-all flex items-center gap-2 ${showFilters ? 'bg-amber-500 text-white' : 'bg-gray-100 text-gray-700 border'}`}
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z" clipRule="evenodd" />
+                        </svg>
+                        {showFilters ? 'إخفاء الفلترة' : 'تصفية وتقارير'}
+                    </button>
+                    <button onClick={() => exportPeerVisits({format: 'pdf', visits, academicYear})} className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 font-bold">{t('exportPdf')}</button>
+                 </div>
             </div>
-            <button onClick={handleAddVisit} className="px-4 py-2 bg-primary text-white font-bold rounded-lg hover:bg-opacity-90 transition-colors">+ {t('addNewItem')}</button>
-            <div className="space-y-4">
+
+            {/* --- Advanced Filters Section --- */}
+            {showFilters && (
+                <div className="p-4 bg-gray-50 border rounded-xl shadow-inner space-y-4 animate-in fade-in slide-in-from-top-2">
+                    <h4 className="font-bold text-primary border-b pb-2">تصفية تقارير الزيارات التبادلية:</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                        <div>
+                            <label className="text-xs font-bold block mb-1">الفرع</label>
+                            <select value={filters.branch} onChange={e => setFilters({...filters, branch: e.target.value})} className="w-full p-2 border rounded-lg bg-white text-sm">
+                                <option value="all">الكل</option>
+                                <option value="boys">طلاب</option>
+                                <option value="girls">طالبات</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="text-xs font-bold block mb-1">المعلم الزائر</label>
+                            <input value={filters.visitingTeacher} onChange={e => setFilters({...filters, visitingTeacher: e.target.value})} placeholder="ابحث باسم الزائر..." className="w-full p-2 border rounded-lg text-sm" />
+                        </div>
+                        <div>
+                            <label className="text-xs font-bold block mb-1">المعلم المزور</label>
+                            <input value={filters.visitedTeacher} onChange={e => setFilters({...filters, visitedTeacher: e.target.value})} placeholder="ابحث باسم المزور..." className="w-full p-2 border rounded-lg text-sm" />
+                        </div>
+                        <div>
+                            <label className="text-xs font-bold block mb-1">المادة</label>
+                            <input value={filters.subject} onChange={e => setFilters({...filters, subject: e.target.value})} placeholder="تصفية المادة..." className="w-full p-2 border rounded-lg text-sm" />
+                        </div>
+                        <div>
+                            <label className="text-xs font-bold block mb-1">الصف</label>
+                            <input value={filters.grade} onChange={e => setFilters({...filters, grade: e.target.value})} placeholder="تصفية الصف..." className="w-full p-2 border rounded-lg text-sm" />
+                        </div>
+                        <div>
+                            <label className="text-xs font-bold block mb-1">الحالة</label>
+                            <select value={filters.status} onChange={e => setFilters({...filters, status: e.target.value})} className="w-full p-2 border rounded-lg bg-white text-sm">
+                                <option value="all">كل الحالات</option>
+                                <option value="لم تتم">لم تتم</option>
+                                <option value="قيد التنفيذ">قيد التنفيذ</option>
+                                <option value="تمت الزيارة">تمت الزيارة</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* --- Aggregated Table View --- */}
+            {showFilters && (
+                <div className="overflow-x-auto rounded-xl border bg-white shadow-sm">
+                    <table className="w-full text-sm text-right">
+                        <thead className="bg-primary text-white text-xs">
+                            <tr>
+                                <th className="p-3 border">عدد الزيارات</th>
+                                <th className="p-3 border">المعلم الزائر</th>
+                                <th className="p-3 border">المادة</th>
+                                <th className="p-3 border">الصف</th>
+                                <th className="p-3 border">المعلم المزور</th>
+                                <th className="p-3 border">مادة المزور</th>
+                                <th className="p-3 border">صف المزور</th>
+                                <th className="p-3 border">حالة الزيارة</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {aggregatedData.map((item, idx) => (
+                                <tr key={idx} className="hover:bg-blue-50 border-b">
+                                    <td className="p-3 border text-center font-bold text-primary bg-primary/5">
+                                        {item.count}
+                                    </td>
+                                    <td className="p-3 border font-semibold">{item.visit.visitingTeacher}</td>
+                                    <td className="p-3 border">{item.visit.visitingSubject}</td>
+                                    <td className="p-3 border">{item.visit.visitingGrade}</td>
+                                    <td className="p-3 border font-semibold">{item.visit.visitedTeacher}</td>
+                                    <td className="p-3 border">{item.visit.visitedSubject}</td>
+                                    <td className="p-3 border">{item.visit.visitedGrade}</td>
+                                    <td className="p-3 border text-center">
+                                        <span className={`px-2 py-1 rounded-full text-[10px] font-bold ${
+                                            item.visit.status === 'تمت الزيارة' ? 'bg-green-100 text-green-700' :
+                                            item.visit.status === 'قيد التنفيذ' ? 'bg-yellow-100 text-yellow-700' :
+                                            'bg-gray-100 text-gray-700'
+                                        }`}>
+                                            {item.visit.status || 'لم تتم'}
+                                        </span>
+                                    </td>
+                                </tr>
+                            ))}
+                            {aggregatedData.length === 0 && (
+                                <tr>
+                                    <td colSpan={8} className="p-8 text-center text-gray-400 italic">لا توجد زيارات تطابق هذه التصفية.</td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+
+            <div className="pt-4 border-t">
+                <button onClick={handleAddVisit} className="px-4 py-2 bg-primary text-white font-bold rounded-lg hover:bg-opacity-90 transition-colors shadow-sm">+ {t('addNewItem')}</button>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {visits.map(v => (
-                    <div key={v.id} className="p-4 border rounded-lg bg-white shadow-sm grid grid-cols-1 md:grid-cols-2 gap-4">
-                         <div className="space-y-2 p-3 border-l">
-                            <h4 className="font-semibold">{t('visitingTeacher')}</h4>
+                    <div key={v.id} className="p-4 border rounded-lg bg-white shadow-sm grid grid-cols-1 md:grid-cols-2 gap-4 border-r-4 border-r-primary-light">
+                         <div className="space-y-2 p-3 border-l rtl:border-l-0 rtl:border-r">
+                            <h4 className="font-semibold text-primary">{t('visitingTeacher')}</h4>
                             <input list="teacher-names" value={v.visitingTeacher} onChange={e => handleUpdateVisit(v.id, 'visitingTeacher', e.target.value)} placeholder={t('teacherName')} className="w-full p-2 border rounded" />
                             <input value={v.visitingSubject} onChange={e => handleUpdateVisit(v.id, 'visitingSubject', e.target.value)} placeholder={t('visitingSubject')} className="w-full p-2 border rounded" />
                             <input value={v.visitingGrade} onChange={e => handleUpdateVisit(v.id, 'visitingGrade', e.target.value)} placeholder={t('visitingGrade')} className="w-full p-2 border rounded" />
                          </div>
                          <div className="space-y-2 p-3">
-                            <h4 className="font-semibold">{t('visitedTeacher')}</h4>
+                            <h4 className="font-semibold text-warning">{t('visitedTeacher')}</h4>
                             <input list="teacher-names" value={v.visitedTeacher} onChange={e => handleUpdateVisit(v.id, 'visitedTeacher', e.target.value)} placeholder={t('teacherName')} className="w-full p-2 border rounded" />
                             <datalist id="teacher-names">{teacherNames.map(name => <option key={name} value={name} />)}</datalist>
                             <input value={v.visitedSubject} onChange={e => handleUpdateVisit(v.id, 'visitedSubject', e.target.value)} placeholder={t('visitedSubject')} className="w-full p-2 border rounded" />
                             <input value={v.visitedGrade} onChange={e => handleUpdateVisit(v.id, 'visitedGrade', e.target.value)} placeholder={t('visitedGrade')} className="w-full p-2 border rounded" />
                          </div>
                          <div className="md:col-span-2 flex justify-between items-center border-t pt-3">
-                             <select value={v.status} onChange={e => handleUpdateVisit(v.id, 'status', e.target.value)} className="p-2 border rounded">
+                             <select value={v.status} onChange={e => handleUpdateVisit(v.id, 'status', e.target.value as any)} className="p-2 border rounded text-sm">
                                 <option value="لم تتم">لم تتم</option>
                                 <option value="قيد التنفيذ">قيد التنفيذ</option>
                                 <option value="تمت الزيارة">تمت الزيارة</option>
                              </select>
-                             <button onClick={() => window.confirm(t('confirmDelete')) && deleteVisit(v.id)} className="text-red-500 text-sm">{t('delete')}</button>
+                             <button onClick={() => window.confirm(t('confirmDelete')) && deleteVisit(v.id)} className="text-red-500 text-sm flex items-center gap-1 hover:underline">
+                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" /></svg>
+                                 {t('delete')}
+                             </button>
                          </div>
                     </div>
                 ))}
@@ -315,7 +465,7 @@ const DeliveryRecords: React.FC<{
     setSheets: React.Dispatch<React.SetStateAction<DeliverySheet[]>>;
     deleteSheet: (sheetId: string) => void;
     allTeachers: Teacher[];
-    selectedSchool: string; // مضافة لضمان ربط الكشف بالمدرسة
+    selectedSchool: string;
 }> = ({ sheets, setSheets, deleteSheet, allTeachers, selectedSchool }) => {
     const { t } = useLanguage();
     const [selectedSheetId, setSelectedSheetId] = useState<string | null>(null);
@@ -331,7 +481,7 @@ const DeliveryRecords: React.FC<{
         const newSheet: DeliverySheet = {
             id: `ds-${Date.now()}`,
             name: newSheetName.trim(),
-            schoolName: selectedSchool, // مضافة لضمان الربط
+            schoolName: selectedSchool,
             records: allTeachers.map(teacher => ({
                 id: `dr-${teacher.id}-${Date.now()}`,
                 teacherId: teacher.id,
@@ -498,7 +648,7 @@ interface SupervisoryToolsProps {
     deleteDeliverySheet: (sheetId: string) => void;
     allTeachers: Teacher[];
     academicYear: string;
-    selectedSchool: string; // مضافة لضمان استقلالية المدرسة
+    selectedSchool: string;
 }
 
 const SupervisoryTools: React.FC<SupervisoryToolsProps> = (props) => {
