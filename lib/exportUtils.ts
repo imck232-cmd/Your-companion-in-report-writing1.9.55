@@ -1,5 +1,5 @@
 
-import { Report, GeneralEvaluationReport, ClassSessionEvaluationReport, Teacher, SpecialReport, Task, PeerVisit, DeliveryRecord, Meeting, SyllabusCoverageReport, SyllabusBranchProgress, DeliverySheet, SyllabusPlan, SupervisoryPlanWrapper, SchoolCalendarEvent } from '../types';
+import { Report, GeneralEvaluationReport, ClassSessionEvaluationReport, Teacher, SpecialReport, Task, PeerVisit, DeliveryRecord, Meeting, SyllabusCoverageReport, SyllabusBranchProgress, DeliverySheet, SyllabusPlan, SupervisoryPlanWrapper } from '../types';
 
 declare const jspdf: any;
 declare const XLSX: any;
@@ -106,6 +106,11 @@ export const sendToWhatsApp = (report: Report, teacher: Teacher) => {
         content += `👨‍🏫 *المعلم:* ${teacher.name}\n`;
         content += `📅 *التاريخ:* ${r.date} | *الفصل:* ${r.semester}\n`;
         content += `📖 *المادة:* ${r.subject} | *الصف:* ${r.grades}\n`;
+        content += `🔖 *الفرع:* ${r.branch === 'main' ? 'رئيسي' : r.branch === 'boys' ? 'طلاب' : 'طالبات'}\n`;
+        content += `🕵️ *المشرف:* ${r.supervisorName || 'غير محدد'}\n`;
+        content += `📋 *نوع الزيارة:* ${r.visitType}\n`;
+        content += `🔢 *رقم الدرس:* ${r.lessonNumber || 'غير محدد'}\n`;
+        content += `📄 *عنوان الدرس:* ${r.lessonName}\n`;
         content += `--------------------------------\n`;
         content += `📈 *نسبة الأداء الإجمالية: ${percentage}%*\n`;
         content += `⭐ *التقدير:* ${getPerformanceDesc(Number(percentage))}\n`;
@@ -118,10 +123,45 @@ export const sendToWhatsApp = (report: Report, teacher: Teacher) => {
                 content += `${getScoreEmoji(c.score)} ${c.label}: ${c.score}/4\n`;
             });
         });
-        window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(content)}`, '_blank');
+
+        content += `\n*📝 البيانات النوعية:*\n`;
+        if (r.strategies) content += `\n💡 *الاستراتيجيات المنفذة:* \n${r.strategies}\n`;
+        if (r.tools) content += `\n🛠️ *الوسائل المستخدمة:* \n${r.tools}\n`;
+        if (r.programs) content += `\n💻 *البرامج المنفذة:* \n${r.programs}\n`;
+        if (r.sources) content += `\n📚 *المصادر المستخدمة:* \n${r.sources}\n`;
+        
+        content += `\n--------------------------------\n`;
+        if (r.positives) content += `\n👍 *الإيجابيات:* \n${r.positives}\n`;
+        if (r.notesForImprovement) content += `\n📝 *ملاحظات للتحسين:* \n${r.notesForImprovement}\n`;
+        if (r.recommendations) content += `\n🎯 *التوصيات:* \n${r.recommendations}\n`;
+        if (r.employeeComment) content += `\n✍️ *تعليق الموظف:* \n${r.employeeComment}\n`;
+
+    } else if (report.evaluationType === 'general') {
+        const r = report as GeneralEvaluationReport;
+        content += `*📝 تقرير التقييم العام*\n\n`;
+        content += `🏫 *المدرسة:* ${r.school}\n`;
+        content += `👨‍🏫 *المعلم:* ${teacher.name}\n`;
+        content += `📅 *التاريخ:* ${r.date} | *الفصل:* ${r.semester}\n`;
+        content += `--------------------------------\n`;
+        content += `📈 *نسبة الأداء: ${percentage}%*\n`;
+        content += `--------------------------------\n\n`;
+        
+        r.criteria.forEach(c => {
+            content += `${getScoreEmoji(c.score)} ${c.label}: ${c.score}/4\n`;
+        });
+        
+        if (r.strategies) content += `\n💡 *الاستراتيجيات:* ${r.strategies}\n`;
+        if (r.tools) content += `\n🛠️ *الوسائل:* ${r.tools}\n`;
     }
+
+    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(content)}`, '_blank');
 };
 
+// --- Added for AggregatedReports fixes ---
+
+/**
+ * Exports multiple reports to a TXT file.
+ */
 export const exportAggregatedToTxt = (reports: Report[], teachers: Teacher[]) => {
     const teacherMap = new Map(teachers.map(t => [t.id, t.name]));
     let content = "ملخص التقارير المجمعة\n\n";
@@ -136,6 +176,9 @@ export const exportAggregatedToTxt = (reports: Report[], teachers: Teacher[]) =>
     link.click();
 };
 
+/**
+ * Exports multiple reports to a PDF file.
+ */
 export const exportAggregatedToPdf = (reports: Report[], teachers: Teacher[]) => {
     const doc = setupPdfDoc();
     const teacherMap = new Map(teachers.map(t => [t.id, t.name]));
@@ -152,6 +195,9 @@ export const exportAggregatedToPdf = (reports: Report[], teachers: Teacher[]) =>
     doc.save(`aggregated_reports.pdf`);
 };
 
+/**
+ * Exports multiple reports to an Excel file.
+ */
 export const exportAggregatedToExcel = (reports: Report[], teachers: Teacher[]) => {
     const teacherMap = new Map(teachers.map(t => [t.id, t.name]));
     const data = reports.map(r => [
@@ -166,6 +212,9 @@ export const exportAggregatedToExcel = (reports: Report[], teachers: Teacher[]) 
     XLSX.writeFile(wb, `aggregated_reports.xlsx`);
 };
 
+/**
+ * Sends a summary of multiple reports to WhatsApp.
+ */
 export const sendAggregatedToWhatsApp = (reports: Report[], teachers: Teacher[]) => {
     const teacherMap = new Map(teachers.map(t => [t.id, t.name]));
     let content = "*📝 ملخص التقارير المجمعة*\n\n";
@@ -176,90 +225,124 @@ export const sendAggregatedToWhatsApp = (reports: Report[], teachers: Teacher[])
     window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(content)}`, '_blank');
 };
 
-export const exportSyllabusCoverage = (format: 'txt' | 'pdf' | 'excel' | 'whatsapp', report: SyllabusCoverageReport, teacherName: string, t: any) => {};
+export const exportSyllabusCoverage = (
+    format: 'txt' | 'pdf' | 'excel' | 'whatsapp',
+    report: SyllabusCoverageReport,
+    teacherName: string,
+    t: (key: any) => string 
+) => {
+    const filename = `Syllabus_Report_${teacherName}_${report.date}`;
 
-// --- New: Export School Calendar ---
-export const exportSchoolCalendar = (format: 'txt' | 'pdf' | 'excel' | 'whatsapp', events: SchoolCalendarEvent[], schoolName: string) => {
-    const title = `التقويم المدرسي - ${schoolName}`;
+    const translateStatus = (status: SyllabusBranchProgress['status']) => {
+        switch(status) {
+            case 'ahead': return 'متقدم عن خطة الوزارة';
+            case 'on_track': return 'مطابق لخطة الوزارة';
+            case 'behind': return 'متأخر عن خطة الوزارة';
+            default: return '--';
+        }
+    };
+
     if (format === 'txt' || format === 'whatsapp') {
-        let content = `*📅 ${title}*\n\n`;
-        events.forEach(e => {
-            content += `🔹 *البرنامج:* ${e.program || '---'}\n`;
-            content += `   📅 *من:* ${e.fromDay} (${e.fromDate})\n`;
-            content += `   📅 *إلى:* ${e.toDay} (${e.toDate})\n`;
-            content += `   📥 *التسليم:* ${e.deliveryDate || '---'}\n`;
-            if (e.notes) content += `   📝 *ملاحظات:* ${e.notes}\n`;
-            content += `------------------\n`;
+        let content = `*📊 تقرير السير في المنهج*\n\n`;
+        content += `*👨‍🏫 المعلم:* ${teacherName}\n`;
+        content += `*🏫 المدرسة:* ${report.schoolName}\n`;
+        content += `*🎓 العام الدراسي:* ${report.academicYear}\n`;
+        content += `*📅 التاريخ:* ${report.date} | *الفصل:* ${report.semester}\n`;
+        content += `*📖 المادة:* ${report.subject} - *الصف:* ${report.grade}\n\n`;
+        
+        content += `*--- 📘 السير في المنهج ---*\n`;
+        (report.branches || []).forEach(b => {
+            let emoji = b.status === 'ahead' ? '📈' : b.status === 'behind' ? '📉' : '🔵';
+            content += `\n*📌 فرع: ${b.branchName}*\n`;
+            content += `${emoji} *الحالة:* ${translateStatus(b.status)}\n`;
+            if (b.lessonDifference) content += `*🔢 الفارق:* ${b.lessonDifference} دروس\n`;
+            content += `*✍️ آخر درس:* ${b.lastLesson || 'لا يوجد'}\n`;
         });
-        if (format === 'whatsapp') {
-            window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(content)}`, '_blank');
-        } else {
+
+        content += `\n*--- 📊 الإحصائيات الكمية ---*\n`;
+        content += `*🤝 اللقاءات التطويرية:* ${report.meetingsAttended || 0}\n`;
+        content += `*📚 تصحيح الدفاتر:* ${report.notebookCorrection || 0}%\n`;
+        content += `*📝 دفتر التحضير:* ${report.preparationBook || 0}%\n`;
+        content += `*📖 مسرد الأسئلة:* ${report.questionsGlossary || 0}%\n`;
+
+        content += `\n*--- 📝 البيانات النوعية ---*\n`;
+        const qFields = [
+            { k: 'programsImplemented', l: 'البرامج والمهارات المنفذة', i: '💻' },
+            { k: 'strategiesImplemented', l: 'الاستراتيجيات المستخدمة', i: '💡' },
+            { k: 'toolsUsed', l: 'الوسائل المستخدمة', i: '🛠️' },
+            { k: 'sourcesUsed', l: 'المصادر المستخدمة', i: '📚' },
+            { k: 'tasksDone', l: 'التكاليف المنفذة', i: '✅' },
+            { k: 'testsDelivered', l: 'الاخبارات المسلمة', i: '📄' },
+            { k: 'peerVisitsDone', l: 'الزيارات التبادلية', i: '🤝' },
+        ];
+
+        qFields.forEach(f => {
+            const val = (report as any)[f.k];
+            if (val) {
+                content += `\n${f.i} *${f.l}:*\n${val}\n`;
+            }
+        });
+
+        if (format === 'txt') {
             const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
-            link.download = `calendar_${schoolName}.txt`;
+            link.download = `${filename}.txt`;
             link.click();
+        } else {
+            window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(content)}`, '_blank');
         }
-    } else if (format === 'excel') {
-        const data = events.map(e => ({
-            'البرنامج': e.program,
-            'من يوم': e.fromDay,
-            'من تاريخ': e.fromDate,
-            'إلى يوم': e.toDay,
-            'إلى تاريخ': e.toDate,
-            'موعد التسليم': e.deliveryDate,
-            'ملاحظات': e.notes
-        }));
-        const ws = XLSX.utils.json_to_sheet(data);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "التقويم");
-        XLSX.writeFile(wb, `calendar_${schoolName}.xlsx`);
+
     } else if (format === 'pdf') {
-        const doc = setupPdfDoc('landscape');
-        doc.text(title, 140, 20, { align: 'center' });
-        const body = events.map(e => [
-            e.notes,
-            e.deliveryDate,
-            e.program,
-            `${e.toDay}\n${e.toDate}`,
-            `${e.fromDay}\n${e.fromDate}`
+        const doc = setupPdfDoc();
+        let y = 20;
+        const writeRtl = (text: string, yPos: number, size = 12) => {
+            doc.setFontSize(size);
+            doc.text(text, 190, yPos, { align: 'right' });
+        }
+        
+        writeRtl("تقرير السير في المنهج", y, 16); y += 10;
+        writeRtl(`المعلم: ${teacherName}`, y); y += 8;
+        writeRtl(`المدرسة: ${report.schoolName}`, y); y += 8;
+        writeRtl(`التاريخ: ${report.date}`, y); y += 12;
+
+        const body = (report.branches || []).map(b => [
+            b.lastLesson,
+            b.lessonDifference + " دروس",
+            translateStatus(b.status),
+            b.branchName
         ]);
+
         doc.autoTable({
-            startY: 30,
-            head: [['ملاحظات', 'موعد التسليم', 'البرنامج', 'إلى', 'من']],
+            startY: y,
+            head: [['آخر درس', 'الفارق', 'الحالة', 'الفرع']],
             body: body,
             styles: getTableStyles(),
             headStyles: getHeadStyles()
         });
+
         addBorderToPdf(doc);
-        doc.save(`calendar_${schoolName}.pdf`);
+        doc.save(`${filename}.pdf`);
+
+    } else if (format === 'excel') {
+        const excelData = (report.branches || []).map(b => ({
+            'الفرع': b.branchName,
+            'الحالة': translateStatus(b.status),
+            'الفارق': b.lessonDifference,
+            'آخر درس': b.lastLesson
+        }));
+        const ws = XLSX.utils.json_to_sheet(excelData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Syllabus");
+        XLSX.writeFile(wb, `${filename}.xlsx`);
     }
 };
 
-export const exportTasks = (format: string, tasks: Task[], year?: string) => {};
+export const exportTasks = (format: 'txt' | 'pdf' | 'excel' | 'whatsapp', tasks: Task[], year?: string) => {};
 export const exportMeetingSummary = ({ format, stats, dateRange, t }: any) => {};
 export const exportPeerVisits = ({ format, visits, academicYear }: any) => {};
 export const exportSupervisorySummary = ({ format, title, data, t }: any) => {};
-
-export const exportKeyMetrics = (format: 'txt' | 'pdf' | 'excel' | 'whatsapp', stats: any, schoolName: string) => {
-    let content = `*📊 مؤشرات الأداء الرئيسية - ${schoolName}*\n\n`;
-    content += `👨‍🏫 إجمالي المعلمين: ${stats.totalTeachers}\n`;
-    content += `📝 إجمالي التقارير: ${stats.totalReports}\n`;
-    content += `📈 متوسط الأداء العام: ${stats.overallAverage.toFixed(1)}%\n`;
-    content += `✅ نسبة إنجاز المهام: ${stats.taskCompletion.toFixed(1)}%\n`;
-    content += `📥 كشوفات الاستلام: ${stats.deliveryCompletion.toFixed(1)}%\n`;
-
-    if (format === 'whatsapp') {
-        window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(content)}`, '_blank');
-    } else if (format === 'txt') {
-        const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = `metrics_${schoolName}.txt`;
-        link.click();
-    }
-};
-
+export const exportKeyMetrics = (format: 'txt' | 'pdf' | 'excel' | 'whatsapp', stats: any, t: any) => {};
 export const exportEvaluationAnalysis = (format: string, analysis: any[], t: any) => {};
 export const exportMeeting = ({ format, meeting }: any) => {};
 export const exportSyllabusPlan = (format: string, plan: SyllabusPlan, t: any) => {};
