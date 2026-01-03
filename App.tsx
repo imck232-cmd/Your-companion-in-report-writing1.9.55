@@ -8,7 +8,7 @@ import Footer from './components/Footer';
 import TeacherManagement from './components/TeacherManagement';
 import LoginModal from './components/LoginModal';
 import ScrollButtons from './components/ScrollButtons';
-import { Teacher, Report, CustomCriterion, School, SpecialReportTemplate, SyllabusPlan, Task, Meeting, PeerVisit, DeliverySheet, BulkMessage, User, SyllabusCoverageReport, SupervisoryPlanWrapper } from './types';
+import { Teacher, Report, CustomCriterion, School, SpecialReportTemplate, SyllabusPlan, Task, Meeting, PeerVisit, DeliverySheet, BulkMessage, User, SyllabusCoverageReport, SupervisoryPlanWrapper, SchoolCalendarEvent } from './types';
 import { THEMES, INITIAL_TEACHERS, INITIAL_SCHOOLS, INITIAL_SUPERVISORY_PLANS, INITIAL_USERS } from './constants';
 import useLocalStorage from './hooks/useLocalStorage';
 
@@ -27,6 +27,7 @@ const AppContent: React.FC = () => {
   const [meetings, setMeetings] = useLocalStorage<Meeting[]>('meetings', []);
   const [peerVisits, setPeerVisits] = useLocalStorage<PeerVisit[]>('peerVisits', []);
   const [deliverySheets, setDeliverySheets] = useLocalStorage<DeliverySheet[]>('deliverySheets', []);
+  const [schoolCalendarEvents, setSchoolCalendarEvents] = useLocalStorage<SchoolCalendarEvent[]>('schoolCalendarEvents', []);
   const [bulkMessages, setBulkMessages] = useLocalStorage<BulkMessage[]>('bulkMessages', []);
   const [syllabusCoverageReports, setSyllabusCoverageReports] = useLocalStorage<SyllabusCoverageReport[]>('syllabusCoverageReports', []);
   const [supervisoryPlans, setSupervisoryPlans] = useLocalStorage<SupervisoryPlanWrapper[]>('supervisoryPlans', INITIAL_SUPERVISORY_PLANS);
@@ -97,12 +98,10 @@ const AppContent: React.FC = () => {
           
           const existingIndex = prev.findIndex(item => item.id === dataToSave.id);
           if (existingIndex > -1) {
-              // تحديث السجل الحالي بدلاً من إضافة جديد
               const updated = [...prev];
               updated[existingIndex] = dataToSave;
               return updated;
           }
-          // إضافة سجل جديد فقط إذا لم يكن موجوداً
           return [...prev, dataToSave];
       });
   };
@@ -111,13 +110,11 @@ const AppContent: React.FC = () => {
     setHiddenCriteria(prev => {
         const newHidden = { ...prev };
         const targets = teacherIds === 'all' ? ['all'] : teacherIds;
-
         targets.forEach(targetId => {
             const existing = newHidden[targetId] || [];
             const updated = [...new Set([...existing, ...criteriaIds])];
             newHidden[targetId] = updated;
         });
-
         return newHidden;
     });
   };
@@ -148,7 +145,7 @@ const AppContent: React.FC = () => {
         return {
             teachers: [], reports: [], customCriteria: [], specialReportTemplates: [], syllabusPlans: [],
             tasks: [], meetings: [], peerVisits: [], deliverySheets: [], bulkMessages: [], allTeachersInSchool: [],
-            syllabusCoverageReports: [], supervisoryPlans: [], usersInSchool: []
+            syllabusCoverageReports: [], supervisoryPlans: [], usersInSchool: [], schoolCalendarEvents: []
         };
     }
     
@@ -198,11 +195,12 @@ const AppContent: React.FC = () => {
         meetings: authorAndSchoolFilter(meetings),
         peerVisits: authorAndSchoolFilter(peerVisits),
         deliverySheets: authorAndSchoolFilter(deliverySheets),
+        schoolCalendarEvents: schoolFilter(schoolCalendarEvents),
         bulkMessages: authorAndSchoolFilter(bulkMessages),
         supervisoryPlans: authorAndSchoolFilter(supervisoryPlans),
         usersInSchool: usersInSchool
     };
-  }, [currentUser, selectedSchool, academicYear, teachers, reports, customCriteria, specialReportTemplates, syllabusPlans, tasks, meetings, peerVisits, deliverySheets, bulkMessages, syllabusCoverageReports, supervisoryPlans, users, schools, hasPermission]);
+  }, [currentUser, selectedSchool, academicYear, teachers, reports, customCriteria, specialReportTemplates, syllabusPlans, tasks, meetings, peerVisits, deliverySheets, schoolCalendarEvents, bulkMessages, syllabusCoverageReports, supervisoryPlans, users, schools, hasPermission]);
 
 
   if (!isAuthenticated) {
@@ -230,6 +228,8 @@ const AppContent: React.FC = () => {
           meetings={userFilteredData.meetings}
           peerVisits={userFilteredData.peerVisits}
           deliverySheets={userFilteredData.deliverySheets}
+          schoolCalendarEvents={userFilteredData.schoolCalendarEvents}
+          setSchoolCalendarEvents={setSchoolCalendarEvents}
           bulkMessages={userFilteredData.bulkMessages}
           supervisoryPlans={userFilteredData.supervisoryPlans}
           setSupervisoryPlans={setSupervisoryPlans}

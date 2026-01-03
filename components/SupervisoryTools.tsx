@@ -2,13 +2,118 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Meeting, PeerVisit, DeliverySheet, DeliveryRecord, MeetingOutcome, SchoolCalendarEvent, Teacher } from '../types';
 import { useLanguage } from '../i18n/LanguageContext';
-import { exportPeerVisits, exportMeeting as exportMeetingUtil, exportMeetingSummary as exportMeetingSummaryUtil } from '../lib/exportUtils';
+import { exportPeerVisits, exportMeeting as exportMeetingUtil, exportMeetingSummary as exportMeetingSummaryUtil, exportSchoolCalendar } from '../lib/exportUtils';
 import { useAuth } from '../contexts/AuthContext';
 import { SUBJECTS } from '../constants';
 
 type ToolView = 'meeting' | 'calendar' | 'peer_visit' | 'delivery';
 
-// --- Meeting Outcome Card ---
+// --- School Calendar Component ---
+const SchoolCalendar: React.FC<{
+    events: SchoolCalendarEvent[];
+    setEvents: React.Dispatch<React.SetStateAction<SchoolCalendarEvent[]>>;
+    selectedSchool: string;
+}> = ({ events, setEvents, selectedSchool }) => {
+    const { t } = useLanguage();
+
+    const handleAddEvent = () => {
+        const newEvent: SchoolCalendarEvent = {
+            id: `ev-${Date.now()}`,
+            fromDay: '', fromDate: '',
+            toDay: '', toDate: '',
+            program: '', deliveryDate: '', notes: '',
+            schoolName: selectedSchool
+        };
+        setEvents(prev => [newEvent, ...prev]);
+    };
+
+    const handleUpdateEvent = (id: string, field: keyof SchoolCalendarEvent, value: string) => {
+        setEvents(prev => prev.map(ev => ev.id === id ? { ...ev, [field]: value } : ev));
+    };
+
+    const handleDeleteEvent = (id: string) => {
+        if (window.confirm(t('confirmDelete'))) {
+            setEvents(prev => prev.filter(ev => ev.id !== id));
+        }
+    };
+
+    return (
+        <div className="space-y-6">
+            <div className="flex justify-between items-center">
+                <h3 className="text-xl font-bold text-primary">{t('schoolCalendar')}</h3>
+                <button onClick={handleAddEvent} className="px-4 py-2 bg-primary text-white font-bold rounded-lg hover:bg-opacity-90 shadow-md transform hover:scale-105 transition-all">
+                    + إضافة برنامج للتقويم
+                </button>
+            </div>
+
+            <div className="overflow-x-auto border-2 border-primary-light rounded-xl shadow-sm bg-white">
+                <table className="w-full min-w-[800px] border-collapse text-sm">
+                    <thead>
+                        <tr className="bg-primary text-white">
+                            <th className="p-3 border-b border-l border-white/20 w-[200px]" colSpan={2}>اليوم والتاريخ</th>
+                            <th className="p-3 border-b border-l border-white/20">البرنامج</th>
+                            <th className="p-3 border-b border-l border-white/20">موعد التسليم</th>
+                            <th className="p-3 border-b">ملاحظات</th>
+                            <th className="p-3 border-b w-12"></th>
+                        </tr>
+                        <tr className="bg-primary-light text-white text-xs">
+                            <th className="p-1 border-l border-white/10">من</th>
+                            <th className="p-1 border-l border-white/10">إلى</th>
+                            <th colSpan={4}></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {events.length > 0 ? events.map((ev) => (
+                            <tr key={ev.id} className="hover:bg-gray-50 transition-colors">
+                                <td className="p-2 border-l border-b bg-gray-50/30">
+                                    <input type="text" value={ev.fromDay} onChange={e => handleUpdateEvent(ev.id, 'fromDay', e.target.value)} placeholder="اليوم" className="w-full p-1 border-b bg-transparent mb-1 text-center font-bold" />
+                                    <input type="date" value={ev.fromDate} onChange={e => handleUpdateEvent(ev.id, 'fromDate', e.target.value)} className="w-full p-1 text-xs text-center bg-white rounded" />
+                                </td>
+                                <td className="p-2 border-l border-b bg-gray-50/30">
+                                    <input type="text" value={ev.toDay} onChange={e => handleUpdateEvent(ev.id, 'toDay', e.target.value)} placeholder="اليوم" className="w-full p-1 border-b bg-transparent mb-1 text-center font-bold" />
+                                    <input type="date" value={ev.toDate} onChange={e => handleUpdateEvent(ev.id, 'toDate', e.target.value)} className="w-full p-1 text-xs text-center bg-white rounded" />
+                                </td>
+                                <td className="p-2 border-l border-b">
+                                    <textarea value={ev.program} onChange={e => handleUpdateEvent(ev.id, 'program', e.target.value)} className="w-full p-1 bg-transparent resize-none h-16 outline-none" placeholder="اكتب البرنامج..." />
+                                </td>
+                                <td className="p-2 border-l border-b">
+                                    <textarea value={ev.deliveryDate} onChange={e => handleUpdateEvent(ev.id, 'deliveryDate', e.target.value)} className="w-full p-1 bg-transparent resize-none h-12 outline-none border-b mb-1" placeholder="نص التسليم..." />
+                                    <input type="date" onChange={e => handleUpdateEvent(ev.id, 'deliveryDate', (ev.deliveryDate || '') + ' ' + e.target.value)} className="w-full p-1 text-xs bg-gray-100 rounded" />
+                                </td>
+                                <td className="p-2 border-b">
+                                    <textarea value={ev.notes} onChange={e => handleUpdateEvent(ev.id, 'notes', e.target.value)} className="w-full p-1 bg-transparent resize-none h-16 outline-none" placeholder="ملاحظات..." />
+                                </td>
+                                <td className="p-2 border-b text-center">
+                                    <button onClick={() => handleDeleteEvent(ev.id)} className="text-red-500 hover:text-red-700 p-1 rounded-full hover:bg-red-50">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" />
+                                        </svg>
+                                    </button>
+                                </td>
+                            </tr>
+                        )) : (
+                            <tr>
+                                <td colSpan={6} className="p-8 text-center text-gray-400 italic">لا توجد برامج مضافة للتقويم. اضغط "إضافة برنامج" للبدء.</td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
+            </div>
+
+            {events.length > 0 && (
+                <div className="flex flex-wrap justify-center gap-3 bg-gray-50 p-4 rounded-xl border border-dashed border-primary-light">
+                    <button onClick={() => exportSchoolCalendar('txt', events, selectedSchool)} className="px-4 py-2 bg-gray-700 text-white text-sm rounded-lg hover:bg-gray-800 shadow transition-all">{t('exportTxt')}</button>
+                    <button onClick={() => exportSchoolCalendar('pdf', events, selectedSchool)} className="px-4 py-2 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 shadow transition-all">{t('exportPdf')}</button>
+                    <button onClick={() => exportSchoolCalendar('excel', events, selectedSchool)} className="px-4 py-2 bg-emerald-600 text-white text-sm rounded-lg hover:bg-emerald-700 shadow transition-all">{t('exportExcel')}</button>
+                    <button onClick={() => exportSchoolCalendar('whatsapp', events, selectedSchool)} className="px-4 py-2 bg-green-500 text-white text-sm rounded-lg hover:bg-green-600 shadow transition-all">{t('sendToWhatsApp')}</button>
+                </div>
+            )}
+        </div>
+    );
+};
+
+// --- SUB-COMPONENT: Meeting Outcome Card ---
+// Fix: Added missing MeetingOutcomeCard sub-component to resolve the compilation error on line 221.
 const MeetingOutcomeCard: React.FC<{
     outcome: MeetingOutcome;
     index: number;
@@ -17,32 +122,46 @@ const MeetingOutcomeCard: React.FC<{
 }> = ({ outcome, index, onUpdate, onDelete }) => {
     const { t } = useLanguage();
     return (
-        <div className="p-4 border-2 border-primary-light/50 rounded-lg bg-white shadow-md space-y-3">
+        <div className="p-4 border rounded-lg bg-white shadow-sm space-y-3">
             <div className="flex justify-between items-center">
-                <h4 className="font-bold text-primary">{t('outcomeCardTitle')} {index + 1}</h4>
-                <button onClick={() => onDelete(index)} className="text-red-500 hover:text-red-700">
-                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" />
-                    </svg>
-                </button>
+                <span className="font-bold text-primary">{t('outcomeCardTitle')} ({index + 1})</span>
+                <button onClick={() => onDelete(index)} className="text-red-500 hover:text-red-700 text-sm">{t('delete')}</button>
             </div>
-            <textarea value={outcome.outcome} onChange={e => onUpdate(index, 'outcome', e.target.value)} placeholder={t('meetingOutcomes')} className="w-full p-2 border rounded" />
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <textarea 
+                value={outcome.outcome} 
+                onChange={e => onUpdate(index, 'outcome', e.target.value)} 
+                placeholder={t('outcomeCardTitle')} 
+                className="w-full p-2 border rounded" 
+            />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 <input type="text" value={outcome.assignee} onChange={e => onUpdate(index, 'assignee', e.target.value)} placeholder={t('assignee')} className="p-2 border rounded" />
                 <input type="date" value={outcome.deadline} onChange={e => onUpdate(index, 'deadline', e.target.value)} className="p-2 border rounded" />
-                <select value={outcome.status} onChange={e => onUpdate(index, 'status', e.target.value)} className="p-2 border rounded">
+                <select value={outcome.status} onChange={e => onUpdate(index, 'status', e.target.value as any)} className="p-2 border rounded">
                     <option value="لم يتم">{t('status_not_done')}</option>
                     <option value="قيد التنفيذ">{t('status_in_progress')}</option>
                     <option value="تم التنفيذ">{t('status_done')}</option>
                 </select>
-                 <select value={outcome.completionPercentage} onChange={e => onUpdate(index, 'completionPercentage', e.target.value)} className="p-2 border rounded">
-                    {[0, 25, 50, 75, 100].map(p => <option key={p} value={p}>{p}%</option>)}
-                </select>
             </div>
-            <textarea value={outcome.notes || ''} onChange={e => onUpdate(index, 'notes', e.target.value)} placeholder={t('notes')} className="w-full p-2 border rounded" />
+            <div className="flex items-center gap-2">
+                <label className="text-sm font-semibold whitespace-nowrap">{t('completionPercentage')}:</label>
+                <input 
+                    type="range" 
+                    min="0" max="100" step="25" 
+                    value={outcome.completionPercentage} 
+                    onChange={e => onUpdate(index, 'completionPercentage', parseInt(e.target.value))} 
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary" 
+                />
+                <span className="font-bold text-primary min-w-[40px]">{outcome.completionPercentage}%</span>
+            </div>
+             <textarea 
+                value={outcome.notes || ''} 
+                onChange={e => onUpdate(index, 'notes', e.target.value)} 
+                placeholder={t('notes')} 
+                className="w-full p-2 border rounded h-16" 
+            />
         </div>
     );
-}
+};
 
 // --- Meeting Minutes Component ---
 const MeetingMinutes: React.FC<{
@@ -230,17 +349,6 @@ const MeetingMinutes: React.FC<{
     );
 }
 
-// --- School Calendar Component ---
-const SchoolCalendar: React.FC = () => {
-    const { t } = useLanguage();
-    return (
-        <div className="p-4 border rounded-lg text-center bg-yellow-50">
-            <h3 className="text-xl font-semibold mb-2">{t('schoolCalendar')}</h3>
-            <p className="text-gray-600">هذه الميزة قيد التطوير حالياً.</p>
-        </div>
-    );
-}
-
 // --- Peer Visits Component ---
 const PeerVisits: React.FC<{
     visits: PeerVisit[];
@@ -267,6 +375,7 @@ const PeerVisits: React.FC<{
     const teacherNames = useMemo(() => allTeachers.map(t => t.name), [allTeachers]);
     const teacherBranchMap = useMemo(() => new Map(allTeachers.map(t => [t.name, t.branch])), [allTeachers]);
     const teacherSubjectMap = useMemo(() => new Map(allTeachers.map(t => [t.name, t.subjects])), [allTeachers]);
+    const teacherBranchMapTyped = useMemo(() => new Map<string, string | undefined>(allTeachers.map(t => [t.name, t.branch])), [allTeachers]);
     const teacherGradeMap = useMemo(() => new Map(allTeachers.map(t => [t.name, t.gradesTaught])), [allTeachers]);
     
     const handleAddVisit = () => {
@@ -303,7 +412,7 @@ const PeerVisits: React.FC<{
     const aggregatedData = useMemo(() => {
         // 1. Filter visits based on criteria
         let filtered = visits.filter(v => {
-            const vBranch = teacherBranchMap.get(v.visitingTeacher) || 'other';
+            const vBranch = teacherBranchMapTyped.get(v.visitingTeacher) || 'other';
             
             const branchMatch = filters.branch === 'all' || vBranch === filters.branch;
             const visitingMatch = !filters.visitingTeacher || v.visitingTeacher.includes(filters.visitingTeacher);
@@ -326,7 +435,7 @@ const PeerVisits: React.FC<{
         });
 
         return Object.values(groups);
-    }, [visits, filters, teacherBranchMap]);
+    }, [visits, filters, teacherBranchMapTyped]);
 
     // --- WhatsApp Export Handler for Peer Visits ---
     const handleWhatsAppExport = () => {
@@ -739,6 +848,8 @@ interface SupervisoryToolsProps {
     deliverySheets: DeliverySheet[];
     setDeliverySheets: React.Dispatch<React.SetStateAction<DeliverySheet[]>>;
     deleteDeliverySheet: (sheetId: string) => void;
+    schoolCalendarEvents: SchoolCalendarEvent[];
+    setSchoolCalendarEvents: React.Dispatch<React.SetStateAction<SchoolCalendarEvent[]>>;
     allTeachers: Teacher[];
     academicYear: string;
     selectedSchool: string;
@@ -756,7 +867,7 @@ const SupervisoryTools: React.FC<SupervisoryToolsProps> = (props) => {
                 return <MeetingMinutes {...props} />;
             case 'calendar':
                  if (!hasPermission('view_school_calendar')) return null;
-                return <SchoolCalendar />;
+                return <SchoolCalendar events={props.schoolCalendarEvents} setEvents={props.setSchoolCalendarEvents} selectedSchool={props.selectedSchool} />;
             case 'peer_visit':
                  if (!hasPermission('view_peer_visits')) return null;
                 return <PeerVisits visits={props.peerVisits} setVisits={props.setPeerVisits} deleteVisit={props.deletePeerVisit} allTeachers={props.allTeachers} academicYear={props.academicYear} selectedSchool={props.selectedSchool}/>;
