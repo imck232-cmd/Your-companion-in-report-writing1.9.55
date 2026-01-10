@@ -216,6 +216,8 @@ const AppContent: React.FC = () => {
           setTheme={setTheme} 
           selectedSchool={selectedSchool}
           onChangeSchool={() => setSelectedSchool(null)}
+          allTeachersInSchool={userFilteredData.allTeachersInSchool}
+          schools={schools}
       />
       <main className="container mx-auto p-4 md:p-6 pb-24">
         <TeacherManagement 

@@ -4,12 +4,15 @@ import { useLanguage } from '../i18n/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { THEMES } from '../constants';
 import DataManagementModal from './DataManagementModal';
+import { Teacher, School } from '../types';
 
 interface HeaderProps {
     currentTheme: string;
     setTheme: (theme: string) => void;
     selectedSchool: string | null;
     onChangeSchool: () => void;
+    allTeachersInSchool: Teacher[];
+    schools: School[];
 }
 
 const ThemeIcon: React.FC = () => (
@@ -18,7 +21,7 @@ const ThemeIcon: React.FC = () => (
     </svg>
 );
 
-const Header: React.FC<HeaderProps> = ({ currentTheme, setTheme, selectedSchool, onChangeSchool }) => {
+const Header: React.FC<HeaderProps> = ({ currentTheme, setTheme, selectedSchool, onChangeSchool, allTeachersInSchool, schools }) => {
   const { t, language, toggleLanguage } = useLanguage();
   const { academicYear, logout, hasPermission, currentUser } = useAuth();
   const [showThemeMenu, setShowThemeMenu] = useState(false);
@@ -108,8 +111,8 @@ const Header: React.FC<HeaderProps> = ({ currentTheme, setTheme, selectedSchool,
           <DataManagementModal 
             isOpen={isDataModalOpen} 
             onClose={() => setIsDataModalOpen(false)}
-            teachers={[]} // سيتم تمريرها من الحالة العامة في App.tsx إذا لزم الأمر
-            schools={[]}   // سيتم تمريرها من الحالة العامة في App.tsx إذا لزم الأمر
+            teachers={allTeachersInSchool}
+            schools={schools}
           />
       )}
     </header>
