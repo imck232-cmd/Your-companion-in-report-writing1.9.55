@@ -1,7 +1,9 @@
+
 import React, { useState } from 'react';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { THEMES } from '../constants';
+import DataManagementModal from './DataManagementModal';
 
 interface HeaderProps {
     currentTheme: string;
@@ -16,11 +18,15 @@ const ThemeIcon: React.FC = () => (
     </svg>
 );
 
-
 const Header: React.FC<HeaderProps> = ({ currentTheme, setTheme, selectedSchool, onChangeSchool }) => {
   const { t, language, toggleLanguage } = useLanguage();
-  const { academicYear, logout, hasPermission } = useAuth();
+  const { academicYear, logout, hasPermission, currentUser } = useAuth();
   const [showThemeMenu, setShowThemeMenu] = useState(false);
+  const [isDataModalOpen, setIsDataModalOpen] = useState(false);
+
+  // منطق التحقق من صلاحية إدارة البيانات
+  const authorizedNames = ['مجيب الرحمن الأحلسي', 'وداد الشرعبي', 'صالح الرفاعي', 'إبراهيم دخان'];
+  const canManageData = hasPermission('all') || (currentUser && authorizedNames.includes(currentUser.name));
 
   return (
     <header className="bg-header-bg text-header-text shadow-lg" style={{ backgroundColor: 'var(--color-header-bg)', color: 'var(--color-header-text)' }}>
@@ -33,6 +39,15 @@ const Header: React.FC<HeaderProps> = ({ currentTheme, setTheme, selectedSchool,
         </div>
 
         <div className="flex flex-wrap justify-center items-center gap-2 relative">
+            {canManageData && (
+                 <button
+                    onClick={() => setIsDataModalOpen(true)}
+                    className="bg-sky-600 hover:bg-sky-700 text-white font-bold py-2 px-4 rounded-lg transition-all text-sm transform hover:scale-105 shadow-md flex items-center gap-2"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
+                    إدارة البيانات
+                </button>
+            )}
             {hasPermission('change_school') && (
                  <button
                     onClick={onChangeSchool}
@@ -87,6 +102,16 @@ const Header: React.FC<HeaderProps> = ({ currentTheme, setTheme, selectedSchool,
             </button>
         </div>
       </div>
+
+      {/* مودال إدارة البيانات */}
+      {canManageData && (
+          <DataManagementModal 
+            isOpen={isDataModalOpen} 
+            onClose={() => setIsDataModalOpen(false)}
+            teachers={[]} // سيتم تمريرها من الحالة العامة في App.tsx إذا لزم الأمر
+            schools={[]}   // سيتم تمريرها من الحالة العامة في App.tsx إذا لزم الأمر
+          />
+      )}
     </header>
   );
 };
